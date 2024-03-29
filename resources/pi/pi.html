@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name=viewport
+          content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover">
+    <meta name=apple-mobile-web-app-capable content=yes>
+    <meta name=apple-mobile-web-app-status-bar-style content=black>
+    <title>Settings</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/barraider/streamdeck-easypi@latest/src/sdpi.css">
+    <script src="https://cdn.jsdelivr.net/gh/barraider/streamdeck-easypi@latest/src/sdtools.common.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+<div id="app">
+    <div>
+        <div class="sdpi-item">
+            <button class="sdpi-item-value" @click="addParameterKey">Add New Parameter</button>
+        </div>
+        <div class="sdpi-item" v-for="record in parameters">
+            <input style="min-width:50%" class="sdpi-item-value sdProperty" v-model="record.key">
+            <input style="min-width:45%" class="sdpi-item-value sdProperty" v-model="record.value">
+        </div>
+    </div>
+    <div class="sdpi-item">
+        <button class="sdpi-item-value" @click="save">Save All</button>
+    </div>
+    <hr>
+    <div class="sdpi-item" id="select_single">
+        <div class="sdpi-item-label">Request Type</div>
+        <select class="sdpi-item-value select sdProperty" v-model="config.methodType">
+            <option value="0" selected>GET</option>
+            <option value="1">POST</option>
+            <option value="2">PUT</option>
+            <option value="3">DELETE</option>
+            <option value="4">PATCH</option>
+        </select>
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">API URL (*)</div>
+        <input class="sdpi-item-value sdProperty" placeholder="https://api.com" v-model="config.apiUrl">
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Browser Url</div>
+        <input class="sdpi-item-value sdProperty" v-model="config.browserUrl" placeholder="https://google.com">
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Title Prefix</div>
+        <input class="sdpi-item-value sdProperty" v-model="config.titlePrefix">
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Interval (Sec)</div>
+        <input class="sdpi-item-value sdProperty" type="number" v-model="config.intervalSeconds">
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Indicator</div>
+        <div type="checkbox" class="sdpi-item">
+            <div class="sdpi-item-value">
+                <input id="showSuccessNotification" class="sdProperty sdCheckbox" type="checkbox" v-model="config.showSuccessNotification">
+                <label for="showSuccessNotification" class="sdpi-item-label"><span></span>Show Success</label>
+            </div>
+        </div>
+        <div class="sdpi-item-value">
+            <input class="sdProperty sdCheckbox" type="checkbox" v-model="config.showSuccessNotification">
+        </div>
+    </div>
+    <hr>
+    <div class="sdpi-item">
+        <button class="sdpi-item-value" @click="save">Save All</button>
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">JSON Selector</div>
+        <input class="sdpi-item-value sdProperty" v-model="config.responseJSONSelector">
+    </div>
+    <div type="textarea" class="sdpi-item">
+        <div class="sdpi-item-label">Lua Script</div>
+        <span class="sdpi-item-value textarea">
+            <textarea type="textarea" class="sdProperty" v-model="config.bodyScript"></textarea>
+        </span>
+    </div>
+    <hr>
+    <div>
+        <div class="sdpi-item">
+            <button class="sdpi-item-value" @click="addMapperKey">Add New Response Mapping</button>
+        </div>
+        <div class="sdpi-item" v-for="record in responseMapping">
+            <input style="min-width:50%" class="sdpi-item-value sdProperty" v-model="record.key">
+            <input style="min-width:45%" class="sdpi-item-value sdProperty" v-model="record.value">
+        </div>
+    </div>
+    <hr>
+    <div>
+        <div class="sdpi-item">
+            <button class="sdpi-item-value" @click="addHeadersKey">Add Header</button>
+        </div>
+        <div class="sdpi-item" v-for="record in headers">
+            <input style="min-width:50%" class="sdpi-item-value sdProperty" v-model="record.key">
+            <input style="min-width:45%" class="sdpi-item-value sdProperty" v-model="record.value">
+        </div>
+    </div>
+    <hr>
+    <div class="sdpi-item">
+        <button class="sdpi-item-value" @click="save">Save All</button>
+    </div>
+</div>
+
+</body>
+
+<script>
+    const {createApp} = Vue
+
+    createApp({
+        methods: {
+            addMapperKey() {
+                this.responseMapping.push({})
+            },
+            addParameterKey() {
+                this.parameters.push({})
+            },
+            addHeadersKey() {
+                this.headers.push({})
+            },
+            save() {
+                this.config.responseMapper = {}
+                this.config.parameters = {}
+                this.config.headers = {}
+
+                for (let record of this.responseMapping) {
+                    if (!record.key || !record.value) {
+                        continue
+                    }
+
+                    this.config.responseMapper[record.key] = record.value
+                }
+                for (let record of this.parameters) {
+                    if (!record.key || !record.value) {
+                        continue
+                    }
+
+                    this.config.parameters[record.key] = record.value
+                }
+                for (let record of this.headers) {
+                    if (!record.key || !record.value) {
+                        continue
+                    }
+
+                    this.config.headers[record.key] = record.value
+                }
+
+                const json = JSON.stringify({
+                    'event': 'setSettings',
+                    'context': uuid,
+                    'payload': this.config
+                });
+                websocket.send(json);
+
+                // let event = new Event('settingsUpdated');
+                // document.dispatchEvent(event);
+            }
+        },
+        mounted() {
+            console.log("app created")
+            document.addEventListener('websocketCreate', () => {
+                this.config = window.actionInfo.payload.settings
+                this.responseMapping = []
+                this.parameters = []
+                this.headers = []
+
+                if (this.config.responseMapper) {
+                    for (let key of Object.keys(this.config.responseMapper)) {
+                        this.responseMapping.push({
+                            key: key,
+                            value: this.config.responseMapper[key]
+                        })
+                    }
+                }
+                if (this.config.parameters) {
+                    for (let key of Object.keys(this.config.parameters)) {
+                        this.parameters.push({
+                            key: key,
+                            value: this.config.parameters[key]
+                        })
+                    }
+                }
+                if (this.config.headers) {
+                    for (let key of Object.keys(this.config.headers)) {
+                        this.headers.push({
+                            key: key,
+                            value: this.config.headers[key]
+                        })
+                    }
+                }
+            });
+        },
+        data() {
+            return {
+                config: {},
+                responseMapping: [],
+                parameters: [],
+                headers: []
+            }
+        }
+    }).mount('#app')
+</script>

@@ -1,0 +1,38 @@
+{
+  "Actions": [
+    {
+      "Icon": "images/pluginIcon",
+      "Name": "API Monkey",
+      "SupportedInMultiActions": true,
+      "Tooltip": "Send GET/POST/PUT API commands and see the result on the Stream Deck.",
+      "UUID": "com.ftt.apimonkey",
+      "PropertyInspectorPath": "pi/pi.html",
+      "States": [
+        {
+          "Image": "images/black",
+          "TitleAlignment": "middle",
+          "FontSize": "11"
+        }
+      ]
+    }
+  ],
+  "Author": "ft-t",
+  "Description": "Send GET/POST/PUT API commands and see the result on the Stream Deck.",
+  "Name": "API Monkey",
+  "Icon": "images/pluginIcon",
+  "URL": "https://github.com/ft-t/streamdeck",
+  "Version": "1.1",
+  "CodePath": "com.ftt.apimonkey",
+  "Category": "ft-t",
+  "CategoryIcon": "images/pluginIcon",
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "4.9"
+  }
+}

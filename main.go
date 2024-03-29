@@ -30,13 +30,13 @@ func main() {
 			return
 		}
 
-		instanceRef, err := manager.InitInstance(event.Context)
+		_, err := manager.InitInstance(event.Context)
 		if err != nil {
 			lg.Err(err).Send()
 			return
 		}
 
-		if err = instanceRef.SetConfig(event.Payload.Get("settings")); err != nil {
+		if err = manager.SetInstanceConfig(event.Context, event.Payload.Get("settings")); err != nil {
 			lg.Err(err).Send()
 			return
 		}
@@ -46,38 +46,34 @@ func main() {
 			return
 		}
 	})
-	//
-	//sdk.AddHandler(func(event *sdk.WillDisappearEvent) {
-	//	if event.Payload == nil {
-	//		return
-	//	}
-	//
-	//	mut.Lock()
-	//	defer mut.Unlock()
-	//	instance, ok := instances[event.Context]
-	//	if !ok {
-	//		return
-	//	}
-	//
-	//	instance.StartAsync()
-	//})
-	//
-	//sdk.AddHandler(func(event *sdk.ReceiveSettingsEvent) {
-	//	setSettingsFromPayload(event.Settings, event.Context, instances[event.Context])
-	//})
-	//
-	//sdk.AddHandler(func(event *sdk.KeyDownEvent) {
-	//	instance, ok := instances[event.Context]
-	//	if !ok {
-	//		lg.Warn().Msgf("instance %v not found", event.Context)
-	//	}
-	//
-	//	instance.KeyPressed()
-	//})
+	sdk.AddHandler(func(event *sdk.WillDisappearEvent) {
+		if event.Payload == nil {
+			return
+		}
+
+		if err := manager.Stop(event.Context); err != nil {
+			lg.Err(err).Send()
+		}
+	})
+
+	sdk.AddHandler(func(event *sdk.ReceiveSettingsEvent) {
+		if err := manager.SetInstanceConfig(event.Context, event.Settings); err != nil {
+			lg.Err(err).Send()
+			return
+		}
+	})
+
+	sdk.AddHandler(func(event *sdk.KeyDownEvent) {
+		if err := manager.KeyPressed(event.Context); err != nil {
+			lg.Err(err).Send()
+			return
+		}
+	})
 
 	err := sdk.Open()
 	if err != nil {
 		lg.Panic().Err(err).Send()
 	}
+
 	sdk.Wait()
 }
