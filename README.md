@@ -27,12 +27,70 @@ ApiMonkey goes beyond simple HTTP/HTTPS request functionalities, offering a rang
 4. Open StreamDeck and add the ApiMonkey plugin to your profile
 5. Configure your requests and enjoy!
 
-## Example Usage
+
+### JSON Selector
+If API response is JSON and you want to extract some specific values from this json response, you can use JSON Selector.
+JSON Selector functionality is based on GoLang implementation of https://github.com/tidwall/gjson library
+
+#### Example
+```
+{
+  "name": {"first": "Tom", "last": "Anderson"},
+  "age":37,
+  "children": ["Sara","Alex","Jack"],
+  "fav.movie": "Deer Hunter",
+  "friends": [
+    {"first": "Dale", "last": "Murphy", "age": 44, "nets": ["ig", "fb", "tw"]},
+    {"first": "Roger", "last": "Craig", "age": 68, "nets": ["fb", "tw"]},
+    {"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
+  ]
+}
+```
+Selectors:
+```
+"name.last"          >> "Anderson"
+"age"                >> 37
+"children"           >> ["Sara","Alex","Jack"]
+"children.#"         >> 3
+"children.1"         >> "Alex"
+"child*.2"           >> "Jack"
+"c?ildren.0"         >> "Sara"
+"fav\.movie"         >> "Deer Hunter"
+"friends.#.first"    >> ["Dale","Roger","Jane"]
+"friends.1.last"     >> "Craig"
+```
+
+**For selector syntax please refer to the [gjson documentation](https://github.com/tidwall/gjson?tab=readme-ov-file#path-syntax)**
+
+### Go Templating
+#### Available fields in for templating:
+- `API URL` - The URL of the API
+- `Body` - The body of the request (POST\PUT)
+- `Browser URL` - The URL of the browser (will be opened on button click)
+- `Title Prefix` - The title prefix for StreamDeck button
+
+#### Go Templating example
+As per screenshot, we defined two template variables
+- `PrID` - in this context pull request id
+- `ProjectID` - id of the project
+![docs/template.png](docs/template.png)
+
+We can now use this variables in request fields, for example per our screenshot: 
+
+`API URL = https://gitlab.com/api/v4/projects/{{.ProjectID}}/merge_requests/{{.PrID}}/pipelines`
+`Browser URL = https://gitlab.com/someorg/org1/sub1/project/-/merge_requests/{{.PrID}}`
+
+Note: use Golang templating syntax for templating. For more information, please refer to the [Golang templating documentation](https://pkg.go.dev/text/template).
 
 ### Lua Scripting
 #### Available fields in lua:
 - `_G.ResponseBody` - (string) The response body
 - `_G.ResponseStatusCode` - (int) The response status code
+
+Lua script execution is based on [gopher-lua](https://github.com/yuin/gopher-lua) library.
+
+Active Lua plugins:
+- `https://github.com/layeh/gopher-json` - for JSON encoding/decoding
 
 **Note: please always return a value from the lua script, otherwise the button will not be updated.**
 
@@ -61,4 +119,4 @@ end
 return totalCount
 ```
 
-![docs/img.png](docs/img.png)
+![docs/img.png](docs/lua.png)
