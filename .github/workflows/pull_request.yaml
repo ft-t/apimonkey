@@ -1,0 +1,21 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - qa
+      - uat
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: golang:1.22-alpine
+    env:
+      ENVIRONMENT: ci
+    steps:
+      - uses: actions/checkout@v3
+      - uses: golangci/golangci-lint-action@v3
+        if: github.ref != 'refs/heads/master' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/uat'
+        with:
+          version: latest
+          args: --timeout=5m --tests=false ./...
