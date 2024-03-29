@@ -11,4 +11,6 @@ type Config struct {
 	TitlePrefix             string            `json:"titlePrefix"`
 	BodyScript              string            `json:"bodyScript"`
 	ShowSuccessNotification bool              `json:"showSuccessNotification"`
+	MethodType              string            `json:"methodType"`
+	Body                    string            `json:"body"`
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/valyala/fastjson"
@@ -58,7 +59,16 @@ func (i *Instance) StartAsync() {
 }
 
 func (i *Instance) run() {
+	ctx := i.ctx
 
+	for ctx.Err() == nil {
+		interval := 30
+		if i.cfg.IntervalSeconds > 0 {
+			interval = i.cfg.IntervalSeconds
+		}
+
+		time.Sleep(time.Duration(interval) * time.Second)
+	}
 }
 
 func (i *Instance) Stop() {
