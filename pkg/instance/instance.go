@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fastjson"
 
 	"github.com/ft-t/apimonkey/pkg/common"
@@ -81,7 +83,16 @@ func (i *Instance) run() {
 			interval = i.cfg.IntervalSeconds
 		}
 
-		i.ExecuteSingleRequest(ctx)
+		newLogger := log.With().
+			Str("id", uuid.NewString()).
+			Str("ctxID", i.ctxID).
+			Logger()
+
+		innerCtx, innerCancel := context.WithCancel(ctx)
+		innerCtx = newLogger.WithContext(innerCtx)
+
+		i.ExecuteSingleRequest(innerCtx)
+		innerCancel()
 
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
