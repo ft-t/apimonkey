@@ -1,7 +1,7 @@
 .PHONY: build-apimonkey-windows
 build-apimonkey-windows:
-	@cd cmd/client/apimonkey && rm -rf dist && GOOS=windows go build -o dist/com.ftt.apimonkey.exe
-	@cd cmd/client/apimonkey/resources && cp -a . ../dist/
+	@rm -rf dist && GOOS=windows go build -o dist/com.ftt.apimonkey.exe
+	@cd resources && cp -a . ../dist/
 
 .PHONY: dev-apimonkey
 dev-apimonkey: build-apimonkey-windows

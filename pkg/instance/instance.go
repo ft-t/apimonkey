@@ -71,6 +71,10 @@ func (i *Instance) StartAsync() {
 
 	i.stopWithoutLock()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	i.ctx = ctx
+	i.ctxCancel = cancel
+
 	go i.run()
 }
 
@@ -126,7 +130,7 @@ func (i *Instance) HandleResponse(
 	response *executor.ExecuteResponse,
 ) error {
 	var sb strings.Builder
-	prefix, err := utils.ExecuteTemplate(i.cfg.TitlePrefix, i.cfg)
+	prefix, err := utils.ExecuteTemplate(i.cfg.TitlePrefix, i.cfg.TemplateParameters)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute template on prefix")
 	}
@@ -210,7 +214,7 @@ func (i *Instance) KeyPressed() error {
 		targetUrl = i.cfg.ApiUrl
 	}
 
-	targetUrl, err := utils.ExecuteTemplate(targetUrl, i.cfg)
+	targetUrl, err := utils.ExecuteTemplate(targetUrl, i.cfg.TemplateParameters)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute template")
 	}

@@ -32,14 +32,14 @@ func (e *Executor) Execute(
 	httpReq = httpReq.SetContext(ctx)
 	httpReq.Method = executeReq.Config.MethodType
 
-	apiUrl, err := utils.ExecuteTemplate(executeReq.Config.ApiUrl, executeReq.Config)
+	apiUrl, err := utils.ExecuteTemplate(executeReq.Config.ApiUrl, executeReq.Config.TemplateParameters)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	httpReq = httpReq.SetURL(apiUrl)
 
-	body, err := utils.ExecuteTemplate(executeReq.Config.Body, executeReq.Config)
+	body, err := utils.ExecuteTemplate(executeReq.Config.Body, executeReq.Config.TemplateParameters)
 	if err != nil {
 		return nil, errors.Wrap(err, "error rendering body")
 	}
@@ -49,7 +49,7 @@ func (e *Executor) Execute(
 	}
 
 	for k, v := range executeReq.Config.Headers {
-		val, renderErr := utils.ExecuteTemplate(v, executeReq.Config)
+		val, renderErr := utils.ExecuteTemplate(v, executeReq.Config.TemplateParameters)
 		if renderErr != nil {
 			return nil, errors.Wrapf(renderErr, "error rendering header. input was %v", v)
 		}

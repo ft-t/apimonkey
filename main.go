@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"meow.tf/streamdeck/sdk"
 
@@ -15,6 +16,17 @@ import (
 
 var lg zerolog.Logger
 
+func recoverPanic() {
+	if rec := recover(); rec != nil {
+		switch v := rec.(type) {
+		case error:
+			lg.Err(v).Send()
+		default:
+			lg.Error().Msgf("%v", v)
+		}
+	}
+}
+
 func main() {
 	logFile := &lumberjack.Logger{
 		Filename:   "logs/log.log",
@@ -24,6 +36,9 @@ func main() {
 		Compress:   false,
 	}
 
+	lg = zerolog.New(zerolog.MultiLevelWriter(os.Stdout, logFile)).With().Timestamp().Logger()
+	log.Logger = lg
+
 	manager := instance.NewManager(
 		instance.NewDefaultFactory(
 			sdk2.NewSDK(),
@@ -32,10 +47,12 @@ func main() {
 			),
 		),
 	)
-
-	lg = zerolog.New(zerolog.MultiLevelWriter(os.Stdout, logFile)).With().Timestamp().Logger()
+	
+	defer recoverPanic()
 
 	sdk.AddHandler(func(event *sdk.WillAppearEvent) {
+		defer recoverPanic()
+
 		if event.Payload == nil {
 			return
 		}
@@ -80,6 +97,7 @@ func main() {
 		}
 	})
 
+	lg.Info().Msgf("Starting StreamDeck plugin. args %v", os.Args)
 	err := sdk.Open()
 	if err != nil {
 		lg.Panic().Err(err).Send()
