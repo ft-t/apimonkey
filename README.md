@@ -27,10 +27,45 @@ ApiMonkey goes beyond simple HTTP/HTTPS request functionalities, offering a rang
 4. Open StreamDeck and add the ApiMonkey plugin to your profile
 5. Configure your requests and enjoy!
 
+### Custom Headers
+You can define custom headers for your requests.
+![docs/headers.png](docs/headers.png)
 
 ### JSON Selector
 If API response is JSON and you want to extract some specific values from this json response, you can use JSON Selector.
 JSON Selector functionality is based on GoLang implementation of https://github.com/tidwall/gjson library
+
+### Response Mapping
+You can map specific response strings to images on your StreamDeck.
+You can unlimited number of mappings.
+
+![docs/mapping.png](docs/mapping.png)
+
+In this specific example we are mapping `status` field to our mapping table:
+- `status = merged` will show `merge.svg` on your StreamDeck
+- `status = running` will show `pending.svg` on your StreamDeck
+- `status = success` will show `success.svg` on your StreamDeck
+- `*` stands for all other cases, not defined in mapping table, it will show `failed.svg` on your StreamDeck
+
+### Go Templating
+#### Available fields in for templating:
+- `API URL` - The URL of the API
+- `Body` - The body of the request (POST\PUT)
+- `Browser URL` - The URL of the browser (will be opened on button click)
+- `Title Prefix` - The title prefix for StreamDeck button
+
+#### Go Templating example
+As per screenshot, we defined two template variables
+- `PrID` - in this context pull request id
+- `ProjectID` - id of the project
+  ![docs/template.png](docs/template.png)
+
+We can now use this variables in request fields, for example per our screenshot:
+
+`API URL = https://gitlab.com/api/v4/projects/{{.ProjectID}}/merge_requests/{{.PrID}}/pipelines`
+`Browser URL = https://gitlab.com/someorg/org1/sub1/project/-/merge_requests/{{.PrID}}`
+
+Note: use Golang templating syntax for templating. For more information, please refer to the [Golang templating documentation](https://pkg.go.dev/text/template).
 
 #### Example
 ```
@@ -61,26 +96,6 @@ Selectors:
 ```
 
 **For selector syntax please refer to the [gjson documentation](https://github.com/tidwall/gjson?tab=readme-ov-file#path-syntax)**
-
-### Go Templating
-#### Available fields in for templating:
-- `API URL` - The URL of the API
-- `Body` - The body of the request (POST\PUT)
-- `Browser URL` - The URL of the browser (will be opened on button click)
-- `Title Prefix` - The title prefix for StreamDeck button
-
-#### Go Templating example
-As per screenshot, we defined two template variables
-- `PrID` - in this context pull request id
-- `ProjectID` - id of the project
-![docs/template.png](docs/template.png)
-
-We can now use this variables in request fields, for example per our screenshot: 
-
-`API URL = https://gitlab.com/api/v4/projects/{{.ProjectID}}/merge_requests/{{.PrID}}/pipelines`
-`Browser URL = https://gitlab.com/someorg/org1/sub1/project/-/merge_requests/{{.PrID}}`
-
-Note: use Golang templating syntax for templating. For more information, please refer to the [Golang templating documentation](https://pkg.go.dev/text/template).
 
 ### Lua Scripting
 #### Available fields in lua:
