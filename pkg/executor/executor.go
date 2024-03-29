@@ -36,9 +36,13 @@ func (e *Executor) Execute(
 	if err != nil {
 		return nil, err
 	}
+	
 	httpReq = httpReq.SetURL(apiUrl)
 
 	body, err := utils.ExecuteTemplate(executeReq.Config.Body, executeReq.Config)
+	if err != nil {
+		return nil, errors.Wrap(err, "error rendering body")
+	}
 
 	if !strings.EqualFold(httpReq.Method, "GET") && body != "" {
 		httpReq = httpReq.SetBodyString(body)
