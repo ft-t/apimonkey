@@ -36,7 +36,7 @@ If API response is JSON and you want to extract some specific values from this j
 JSON Selector functionality is based on GoLang implementation of https://github.com/tidwall/gjson library
 
 ### Response Mapping
-You can map specific response strings to images on your StreamDeck.
+You can map specific response strings to images or text on your StreamDeck.
 You can unlimited number of mappings.
 
 ![docs/mapping.png](docs/mapping.png)
@@ -60,7 +60,7 @@ As per screenshot, we defined two template variables
 - `ProjectID` - id of the project
   ![docs/template.png](docs/template.png)
 
-We can now use this variables in request fields, for example per our screenshot:
+We can now use these variables in request fields, for example per our screenshot:
 
 `API URL = https://gitlab.com/api/v4/projects/{{.ProjectID}}/merge_requests/{{.PrID}}/pipelines`
 `Browser URL = https://gitlab.com/someorg/org1/sub1/project/-/merge_requests/{{.PrID}}`
@@ -135,3 +135,9 @@ return totalCount
 ```
 
 ![docs/img.png](docs/lua.png)
+
+## Dependencies
+- [streamdeck-sdk-go](https://github.com/tystuyfzand/streamdeck-sdk-go) - StreamDeck SDK for Go
+- [streamdeck-easypi](https://github.com/BarRaider/streamdeck-easypi) - EasyPI for StreamDeck
+- [gopher-lua](https://github.com/yuin/gopher-lua) - Lua VM in Go
+- [gjson](https://github.com/tidwall/gjson) - JSON parser for Go
