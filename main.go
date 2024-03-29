@@ -7,7 +7,10 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"meow.tf/streamdeck/sdk"
 
+	"github.com/ft-t/apimonkey/pkg/executor"
 	"github.com/ft-t/apimonkey/pkg/instance"
+	"github.com/ft-t/apimonkey/pkg/scripts"
+	sdk2 "github.com/ft-t/apimonkey/pkg/sdk"
 )
 
 var lg zerolog.Logger
@@ -21,7 +24,14 @@ func main() {
 		Compress:   false,
 	}
 
-	manager := instance.NewManager()
+	manager := instance.NewManager(
+		instance.NewDefaultFactory(
+			sdk2.NewSDK(),
+			executor.NewExecutor(
+				scripts.NewLua(),
+			),
+		),
+	)
 
 	lg = zerolog.New(zerolog.MultiLevelWriter(os.Stdout, logFile)).With().Timestamp().Logger()
 

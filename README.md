@@ -53,6 +53,7 @@ In this specific example we are mapping `status` field to our mapping table:
 - `Body` - The body of the request (POST\PUT)
 - `Browser URL` - The URL of the browser (will be opened on button click)
 - `Title Prefix` - The title prefix for StreamDeck button
+- `Headers` - The headers of the request
 
 #### Go Templating example
 As per screenshot, we defined two template variables

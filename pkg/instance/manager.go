@@ -10,12 +10,16 @@ import (
 type Manager struct {
 	instances map[string]*Instance
 	mut       sync.Mutex
+	factory   Factory
 }
 
-func NewManager() *Manager {
+func NewManager(
+	factory Factory,
+) *Manager {
 	return &Manager{
 		instances: make(map[string]*Instance),
 		mut:       sync.Mutex{},
+		factory:   factory,
 	}
 }
 
@@ -25,7 +29,7 @@ func (m *Manager) InitInstance(ctxId string) (*Instance, error) {
 	instance, ok := m.instances[ctxId]
 
 	if !ok {
-		instance = NewInstance(ctxId)
+		instance = m.factory.Create(ctxId)
 		m.instances[ctxId] = instance
 	}
 

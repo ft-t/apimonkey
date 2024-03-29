@@ -4,7 +4,7 @@
       "Icon": "images/pluginIcon",
       "Name": "API Monkey",
       "SupportedInMultiActions": true,
-      "Tooltip": "Send GET/POST/PUT API commands and see the result on the Stream Deck.",
+      "Tooltip": "Send HTTP(S) API commands and see the result on the Stream Deck.",
       "UUID": "com.ftt.apimonkey",
       "PropertyInspectorPath": "pi/pi.html",
       "States": [
@@ -17,10 +17,10 @@
     }
   ],
   "Author": "ft-t",
-  "Description": "Send GET/POST/PUT API commands and see the result on the Stream Deck.",
+  "Description": "Send HTTP(S) API commands and see the result on the Stream Deck.",
   "Name": "API Monkey",
   "Icon": "images/pluginIcon",
-  "URL": "https://github.com/ft-t/streamdeck",
+  "URL": "https://github.com/ft-t/apimonkey",
   "Version": "1.1",
   "CodePath": "com.ftt.apimonkey",
   "Category": "ft-t",

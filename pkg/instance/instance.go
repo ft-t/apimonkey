@@ -2,15 +2,22 @@ package instance
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fastjson"
-	"meow.tf/streamdeck/sdk"
 
 	"github.com/ft-t/apimonkey/pkg/common"
+	"github.com/ft-t/apimonkey/pkg/executor"
 	"github.com/ft-t/apimonkey/pkg/utils"
 )
 
@@ -20,14 +27,20 @@ type Instance struct {
 	mut       sync.Mutex
 	ctx       context.Context
 	ctxCancel context.CancelFunc
+	executor  Executor
+	sdk       SDK
 }
 
 func NewInstance(
 	ctxID string,
+	executor Executor,
+	sdk SDK,
 ) *Instance {
 	return &Instance{
-		ctxID: ctxID,
-		mut:   sync.Mutex{},
+		ctxID:    ctxID,
+		mut:      sync.Mutex{},
+		executor: executor,
+		sdk:      sdk,
 	}
 }
 
@@ -45,7 +58,11 @@ func (i *Instance) SetConfig(payload *fastjson.Value) error {
 }
 
 func (i *Instance) ShowAlert() {
-	sdk.ShowAlert(i.ctxID)
+	i.sdk.ShowAlert(i.ctxID)
+}
+
+func (i *Instance) ShowOk() {
+	i.sdk.ShowOk(i.ctxID)
 }
 
 func (i *Instance) StartAsync() {
@@ -58,7 +75,118 @@ func (i *Instance) StartAsync() {
 }
 
 func (i *Instance) run() {
+	ctx := i.ctx
 
+	for ctx.Err() == nil {
+		interval := 30
+		if i.cfg.IntervalSeconds > 0 {
+			interval = i.cfg.IntervalSeconds
+		}
+
+		newLogger := log.With().
+			Str("id", uuid.NewString()).
+			Str("ctxID", i.ctxID).
+			Logger()
+
+		innerCtx, innerCancel := context.WithCancel(ctx)
+		innerCtx = newLogger.WithContext(innerCtx)
+
+		i.ExecuteSingleRequest(innerCtx)
+		innerCancel()
+
+		time.Sleep(time.Duration(interval) * time.Second)
+	}
+}
+
+func (i *Instance) ExecuteSingleRequest(
+	ctx context.Context,
+) {
+	resp, err := i.executor.Execute(ctx, executor.ExecuteRequest{
+		Config: *i.cfg,
+	})
+	if err != nil {
+		zerolog.Ctx(ctx).Err(err).Msg("error executing request")
+		i.ShowAlert()
+		return
+	}
+
+	if handleErr := i.HandleResponse(ctx, resp); handleErr != nil {
+		zerolog.Ctx(ctx).Err(handleErr).Msg("error handling response")
+		i.ShowAlert()
+		return
+	}
+
+	if i.cfg.ShowSuccessNotification {
+		i.ShowOk()
+	}
+}
+
+func (i *Instance) HandleResponse(
+	ctx context.Context,
+	response *executor.ExecuteResponse,
+) error {
+	var sb strings.Builder
+	prefix, err := utils.ExecuteTemplate(i.cfg.TitlePrefix, i.cfg)
+	if err != nil {
+		return errors.Wrap(err, "failed to execute template on prefix")
+	}
+
+	if prefix != "" {
+		sb.WriteString(strings.ReplaceAll(prefix, "\\n", "\n") + "\n")
+	}
+
+	if len(i.cfg.ResponseMapper) == 0 {
+		sb.WriteString(response.Response)
+
+		i.sdk.SetTitle(i.ctxID, sb.String(), 0)
+		i.sdk.SetImage(i.ctxID, "", 0)
+
+		return nil
+	}
+
+	def, defaultOk := i.cfg.ResponseMapper["*"]
+	mapped, ok := i.cfg.ResponseMapper[response.Response]
+
+	if !ok && defaultOk {
+		mapped = def
+	}
+
+	if mapped == "" {
+		return errors.New("no mapping found")
+	}
+
+	if strings.HasSuffix(mapped, ".png") || strings.HasSuffix(mapped, ".svg") {
+		if sb.Len() > 0 {
+			i.sdk.SetTitle(i.ctxID, sb.String(), 0)
+		}
+
+		return i.handleImageMapping(ctx, mapped)
+	} else {
+		sb.WriteString(mapped)
+		i.sdk.SetTitle(i.ctxID, sb.String(), 0)
+		i.sdk.SetImage(i.ctxID, "", 0)
+	}
+
+	return nil
+}
+
+func (i *Instance) handleImageMapping(_ context.Context, mapped string) error {
+	fileData, err := utils.ReadFile(mapped)
+
+	if err != nil {
+		return errors.Join(err, errors.New("image file not found"))
+	}
+
+	imageData := ""
+	if strings.HasSuffix(mapped, ".png") {
+		imageData = fmt.Sprintf("data:image/png;base64, %v", base64.StdEncoding.EncodeToString(fileData))
+	} else if strings.HasSuffix(mapped, ".svg") {
+		imageData = fmt.Sprintf("data:image/svg+xml;charset=utf8,%v", string(fileData))
+	}
+
+	i.sdk.SetImage(i.ctxID, imageData, 0)
+
+	return nil
 }
 
 func (i *Instance) Stop() {
