@@ -8,7 +8,7 @@ import (
 )
 
 type Manager struct {
-	instances map[string]*Instance
+	instances map[string]Instance
 	mut       sync.Mutex
 	factory   Factory
 }
@@ -17,13 +17,13 @@ func NewManager(
 	factory Factory,
 ) *Manager {
 	return &Manager{
-		instances: make(map[string]*Instance),
+		instances: make(map[string]Instance),
 		mut:       sync.Mutex{},
 		factory:   factory,
 	}
 }
 
-func (m *Manager) InitInstance(ctxId string) (*Instance, error) {
+func (m *Manager) InitInstance(ctxId string) (Instance, error) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	instance, ok := m.instances[ctxId]
@@ -60,8 +60,6 @@ func (m *Manager) KeyPressed(ctxId string) error {
 	}
 
 	if err := instance.KeyPressed(); err != nil {
-		instance.ShowAlert()
-
 		return err
 	}
 
@@ -96,8 +94,6 @@ func (m *Manager) SetInstanceConfig(
 	}
 
 	if err := instance.SetConfig(payload); err != nil {
-		instance.ShowAlert()
-
 		return err
 	}
 

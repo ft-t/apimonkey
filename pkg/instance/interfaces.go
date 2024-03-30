@@ -3,8 +3,12 @@ package instance
 import (
 	"context"
 
+	"github.com/valyala/fastjson"
+
 	"github.com/ft-t/apimonkey/pkg/executor"
 )
+
+//go:generate mockgen -destination interfaces_mocks_test.go -package instance_test -source=interfaces.go
 
 type Executor interface {
 	Execute(
@@ -21,5 +25,12 @@ type SDK interface {
 }
 
 type Factory interface {
-	Create(ctxID string) *Instance
+	Create(ctxID string) Instance
+}
+
+type Instance interface {
+	SetConfig(payload *fastjson.Value) error
+	StartAsync()
+	Stop()
+	KeyPressed() error
 }

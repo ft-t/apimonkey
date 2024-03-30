@@ -47,7 +47,7 @@ func main() {
 			),
 		),
 	)
-	
+
 	defer recoverPanic()
 
 	sdk.AddHandler(func(event *sdk.WillAppearEvent) {
