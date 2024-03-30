@@ -1,4 +1,5 @@
 ![build workflow](https://github.com/ft-t/apimonkey/actions/workflows/release.yaml/badge.svg?branch=master)
+[![codecov](https://codecov.io/github/ft-t/apimonkey/graph/badge.svg?token=1DUN0Y78V4)](https://codecov.io/github/ft-t/apimonkey)
 [![go-report](https://goreportcard.com/badge/github.com/ft-t/apimonkey?nocache=true)](https://goreportcard.com/report/github.com/ft-t/apimonkey)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/ft-t/apimonkey)](https://pkg.go.dev/github.com/ft-t/apimonkey?tab=doc)
 

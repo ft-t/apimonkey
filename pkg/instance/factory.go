@@ -15,6 +15,6 @@ func NewDefaultFactory(
 	}
 }
 
-func (f *DefaultFactory) Create(ctxID string) *Instance {
+func (f *DefaultFactory) Create(ctxID string) Instance {
 	return NewInstance(ctxID, f.Executor, f.sdk)
 }

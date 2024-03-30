@@ -21,7 +21,7 @@ import (
 	"github.com/ft-t/apimonkey/pkg/utils"
 )
 
-type Instance struct {
+type DefaultInstance struct {
 	ctxID     string
 	cfg       *common.Config
 	mut       sync.Mutex
@@ -35,8 +35,8 @@ func NewInstance(
 	ctxID string,
 	executor Executor,
 	sdk SDK,
-) *Instance {
-	return &Instance{
+) *DefaultInstance {
+	return &DefaultInstance{
 		ctxID:    ctxID,
 		mut:      sync.Mutex{},
 		executor: executor,
@@ -44,11 +44,24 @@ func NewInstance(
 	}
 }
 
-func (i *Instance) SetConfig(payload *fastjson.Value) error {
+func (i *DefaultInstance) SDK() SDK {
+	return i.sdk
+}
+
+func (i *DefaultInstance) Executor() Executor {
+	return i.executor
+}
+
+func (i *DefaultInstance) ContextID() string {
+	return i.ctxID
+}
+
+func (i *DefaultInstance) SetConfig(payload *fastjson.Value) error {
 	settingsBytes := payload.MarshalTo(nil)
 	var tempConfig common.Config
 
 	if err := json.Unmarshal(settingsBytes, &tempConfig); err != nil {
+		i.ShowAlert()
 		return errors.Wrap(err, "failed to unmarshal settings")
 	}
 
@@ -57,15 +70,15 @@ func (i *Instance) SetConfig(payload *fastjson.Value) error {
 	return nil
 }
 
-func (i *Instance) ShowAlert() {
+func (i *DefaultInstance) ShowAlert() {
 	i.sdk.ShowAlert(i.ctxID)
 }
 
-func (i *Instance) ShowOk() {
+func (i *DefaultInstance) ShowOk() {
 	i.sdk.ShowOk(i.ctxID)
 }
 
-func (i *Instance) StartAsync() {
+func (i *DefaultInstance) StartAsync() {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
@@ -78,7 +91,7 @@ func (i *Instance) StartAsync() {
 	go i.run()
 }
 
-func (i *Instance) run() {
+func (i *DefaultInstance) run() {
 	ctx := i.ctx
 
 	for ctx.Err() == nil {
@@ -102,7 +115,7 @@ func (i *Instance) run() {
 	}
 }
 
-func (i *Instance) ExecuteSingleRequest(
+func (i *DefaultInstance) ExecuteSingleRequest(
 	ctx context.Context,
 ) {
 	resp, err := i.executor.Execute(ctx, executor.ExecuteRequest{
@@ -125,7 +138,7 @@ func (i *Instance) ExecuteSingleRequest(
 	}
 }
 
-func (i *Instance) HandleResponse(
+func (i *DefaultInstance) HandleResponse(
 	ctx context.Context,
 	response *executor.ExecuteResponse,
 ) error {
@@ -174,7 +187,7 @@ func (i *Instance) HandleResponse(
 	return nil
 }
 
-func (i *Instance) handleImageMapping(_ context.Context, mapped string) error {
+func (i *DefaultInstance) handleImageMapping(_ context.Context, mapped string) error {
 	fileData, err := utils.ReadFile(mapped)
 
 	if err != nil {
@@ -193,14 +206,14 @@ func (i *Instance) handleImageMapping(_ context.Context, mapped string) error {
 	return nil
 }
 
-func (i *Instance) Stop() {
+func (i *DefaultInstance) Stop() {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
 	i.stopWithoutLock()
 }
 
-func (i *Instance) stopWithoutLock() {
+func (i *DefaultInstance) stopWithoutLock() {
 	if i.ctxCancel != nil {
 		i.ctxCancel()
 	}
@@ -208,7 +221,7 @@ func (i *Instance) stopWithoutLock() {
 	i.ctxCancel = nil
 }
 
-func (i *Instance) KeyPressed() error {
+func (i *DefaultInstance) KeyPressed() error {
 	targetUrl := i.cfg.BrowserUrl
 	if targetUrl == "" {
 		targetUrl = i.cfg.ApiUrl
@@ -216,11 +229,13 @@ func (i *Instance) KeyPressed() error {
 
 	targetUrl, err := utils.ExecuteTemplate(targetUrl, i.cfg.TemplateParameters)
 	if err != nil {
+		i.ShowAlert()
 		return errors.Wrap(err, "failed to execute template")
 	}
 
 	if err = exec.Command("rundll32",
 		"url.dll,FileProtocolHandler", targetUrl).Start(); err != nil {
+		i.ShowAlert()
 		return errors.Wrap(err, "failed to open url")
 	}
 
