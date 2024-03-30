@@ -15,7 +15,7 @@ func TestDefaultFactory(t *testing.T) {
 
 	factory := instance.NewDefaultFactory(sdk, executor)
 
-	instanceRef := factory.Create("1231231")
+	instanceRef := factory.Create("1231231").(*instance.DefaultInstance)
 
 	assert.Equal(t, sdk, instanceRef.SDK())
 	assert.Equal(t, executor, instanceRef.Executor())
