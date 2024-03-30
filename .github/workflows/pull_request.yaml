@@ -14,7 +14,7 @@ jobs:
       ENVIRONMENT: ci
     steps:
       - uses: actions/checkout@v3
-      - run: apk update && apk add curl openssl git openssh-client build-base && mkdir -p /root/.ssh
+      - run: apk update && apk add curl openssl git openssh-client build-base gnupg && mkdir -p /root/.ssh
       - run: wget -O /usr/bin/mockgen https://github.com/skynet2/mock/releases/latest/download/mockgen && chmod 777 /usr/bin/mockgen
       - run: make generate
       - run: go test -json -coverprofile=/root/coverage_temp.txt -covermode=atomic ./... > /root/test.json
