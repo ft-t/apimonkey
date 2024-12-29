@@ -23,7 +23,7 @@
   "URL": "https://github.com/ft-t/apimonkey",
   "Version": "1.1",
   "CodePath": "com.ftt.apimonkey",
-  "Category": "ft-t",
+  "Category": "API Monkey",
   "CategoryIcon": "images/pluginIcon",
   "OS": [
     {
@@ -33,6 +33,6 @@
   ],
   "SDKVersion": 2,
   "Software": {
-    "MinimumVersion": "4.9"
+    "MinimumVersion": "6.4"
   }
 }
