@@ -25,7 +25,7 @@ jobs:
       TARGET_VERSION: ${{needs.version.outputs.versionOut}}
       SEM_VERSION: ${{needs.version.outputs.versionSemVerOut}}
     steps:
-      - run: apt-get update && apt-get install -y jq
+      - run: sudo apt-get update && sudo apt-get install -y jq
       - uses: actions/checkout@v4
       - name: Set version in manifest
         run: jq --arg ver "$TARGET_VERSION" '.Version = $ver' ./resources/manifest.json > temp.json && mv temp.json ./resources/manifest.json
