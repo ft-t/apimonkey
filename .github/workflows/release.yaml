@@ -2,13 +2,12 @@ on:
   push:
     branches:
       - master
-      - manifest
 
 jobs:
   version:
     runs-on: ubuntu-latest
     env:
-      MAJOR_VERSION: 0
+      MAJOR_VERSION: 1
     outputs:
       versionOut: ${{ steps.generateVersion.outputs.version }}
       versionSemVerOut: ${{ steps.semVer.outputs.semVersion }}
