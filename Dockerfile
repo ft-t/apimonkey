@@ -1,4 +1,4 @@
-FROM golang:1.22-bookworm
+FROM golang:1.23-bookworm
 RUN apt-get update && apt-get install zip git -y
 ADD . /src
 WORKDIR /src
