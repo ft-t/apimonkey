@@ -2,12 +2,33 @@ on:
   push:
     branches:
       - master
+      - manifest
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    env:
+      MAJOR_VERSION: 0
+    outputs:
+      versionOut: ${{ steps.generateVersion.outputs.version }}
+      versionSemVerOut: ${{ steps.semVer.outputs.semVersion }}
+    steps:
+      - id: generateVersion
+        run: echo "version=$MAJOR_VERSION.0.${{ github.run_number }}.0" >> "$GITHUB_OUTPUT"
+      - id: semVer
+        run: echo "semVersion=$MAJOR_VERSION.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
   ci:
     runs-on: ubuntu-latest
+    needs:
+      - version
+    env:
+      TARGET_VERSION: ${{needs.version.outputs.versionOut}}
+      SEM_VERSION: ${{needs.version.outputs.versionSemVerOut}}
     steps:
+      - run: apt-get update && apt-get install -y jq
       - uses: actions/checkout@v4
+      - name: Set version in manifest
+        run: jq --arg ver "$TARGET_VERSION" '.Version = $ver' ./resources/manifest.json > temp.json && mv temp.json ./resources/manifest.json
       - run: docker build -t temp .
       - run: docker run -v $(pwd)/tmpdist:/tmpdist temp sh -c "cp /dist/com.ftt.apimonkey.sdPlugin.zip /tmpdist/com.ftt.apimonkey.sdPlugin.zip"
       - name: release
@@ -16,8 +37,8 @@ jobs:
         with:
           draft: false
           prerelease: false
-          release_name: v.0.3.${{ github.run_number }}-apimonkey
-          tag_name: v.0.3.${{ github.run_number }}
+          release_name: ${{ env.TARGET_VERSION }}
+          tag_name: ${{ env.SEM_VERSION }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: upload windows artifact

@@ -11,18 +11,19 @@
         {
           "Image": "images/black",
           "TitleAlignment": "middle",
-          "FontSize": "11"
+          "FontSize": 11
         }
       ]
     }
   ],
+  "UUID": "com.ftt.apimonkey",
   "Author": "ft-t",
   "Description": "Send HTTP(S) API commands and see the result on the Stream Deck.",
   "Name": "API Monkey",
   "Icon": "images/pluginIcon",
   "URL": "https://github.com/ft-t/apimonkey",
-  "Version": "1.1",
-  "CodePath": "com.ftt.apimonkey",
+  "Version": "0.0.0.0",
+  "CodePath": "com.ftt.apimonkey.exe",
   "Category": "API Monkey",
   "CategoryIcon": "images/pluginIcon",
   "OS": [
