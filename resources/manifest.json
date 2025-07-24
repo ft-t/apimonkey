@@ -23,13 +23,18 @@
   "Icon": "images/pluginIcon",
   "URL": "https://github.com/ft-t/apimonkey",
   "Version": "0.0.0.0",
-  "CodePath": "com.ftt.apimonkey.exe",
+  "CodePathWin": "com.ftt.apimonkey.exe",
+  "CodePathMac": "com.ftt.apimonkey.darwin.arm64",
   "Category": "API Monkey",
   "CategoryIcon": "images/pluginIcon",
   "OS": [
     {
       "Platform": "windows",
       "MinimumVersion": "10"
+    },
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.15"
     }
   ],
   "SDKVersion": 2,
