@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -233,10 +232,9 @@ func (i *DefaultInstance) KeyPressed() error {
 		return errors.Wrap(err, "failed to execute template")
 	}
 
-	if err = exec.Command("rundll32",
-		"url.dll,FileProtocolHandler", targetUrl).Start(); err != nil {
+	if err = utils.OpenBrowser(targetUrl); err != nil {
 		i.ShowAlert()
-		return errors.Wrap(err, "failed to open url")
+		return err
 	}
 
 	return nil
