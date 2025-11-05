@@ -40,6 +40,12 @@
         <div class="sdpi-item-label">API URL (*)</div>
         <input class="sdpi-item-value sdProperty" placeholder="https://api.com" v-model="config.apiUrl">
     </div>
+    <div type="textarea" class="sdpi-item" v-if="config.methodType !== 'GET'">
+        <div class="sdpi-item-label">Request Body</div>
+        <span class="sdpi-item-value textarea">
+            <textarea type="textarea" class="sdProperty" v-model="config.body" placeholder='{"key": "value"}'></textarea>
+        </span>
+    </div>
     <div class="sdpi-item">
         <div class="sdpi-item-label">Browser Url</div>
         <input class="sdpi-item-value sdProperty" v-model="config.browserUrl" placeholder="https://google.com">
