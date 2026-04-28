@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - version
+    permissions:
+      contents: write
     env:
       TARGET_VERSION: ${{needs.version.outputs.versionOut}}
       SEM_VERSION: ${{needs.version.outputs.versionSemVerOut}}
@@ -29,23 +31,12 @@ jobs:
       - name: Set version in manifest
         run: jq --arg ver "$TARGET_VERSION" '.Version = $ver' ./resources/manifest.json > temp.json && mv temp.json ./resources/manifest.json
       - run: docker build -t temp .
-      - run: docker run -v $(pwd)/tmpdist:/tmpdist temp sh -c "cp /dist/com.ftt.apimonkey.sdPlugin.zip /tmpdist/com.ftt.apimonkey.sdPlugin.zip"
+      - run: mkdir -p tmpdist && docker run -v $(pwd)/tmpdist:/tmpdist temp sh -c "cp /dist/com.ftt.apimonkey.sdPlugin.zip /tmpdist/com.ftt.apimonkey.sdPlugin.zip"
       - name: release
-        uses: actions/create-release@v1
-        id: create_release
+        uses: softprops/action-gh-release@v2
         with:
+          name: ${{ env.TARGET_VERSION }}
+          tag_name: ${{ env.SEM_VERSION }}
           draft: false
           prerelease: false
-          release_name: ${{ env.TARGET_VERSION }}
-          tag_name: ${{ env.SEM_VERSION }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: upload windows artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: tmpdist/com.ftt.apimonkey.sdPlugin.zip
-          asset_name: com.ftt.apimonkey.sdPlugin.zip
-          asset_content_type: application/octet-stream
+          files: tmpdist/com.ftt.apimonkey.sdPlugin.zip
