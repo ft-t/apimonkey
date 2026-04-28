@@ -9,6 +9,10 @@
     <title>Settings</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/barraider/streamdeck-easypi@latest/src/sdpi.css">
     <script src="https://cdn.jsdelivr.net/gh/barraider/streamdeck-easypi@latest/src/sdtools.common.js"></script>
+    <script>
+        // Vue.js 负责数据绑定，禁用 sdtools 的自动表单填充，避免找不到 DOM 元素时报错
+        function loadConfiguration() {}
+    </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body>
