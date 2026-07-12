@@ -14,6 +14,8 @@ ApiMonkey goes beyond simple HTTP/HTTPS request functionalities, offering a rang
 ### Request features
 - **Go Templating Support**: Utilize Go Templating for dynamic fields such as URL, Body, Browser URL, and Title, allowing for highly customizable request configurations.
 - **Custom Headers**: Define custom headers for your requests, providing additional flexibility and support for various APIs that require specific header configurations.
+- **Configurable Button Actions**: Open a browser, refresh the configured request, or execute a dedicated Lua action when a button is pressed.
+- **Independent Polling**: Set the polling interval to `0` for on-demand buttons, or keep a positive interval alongside any button action.
 
 ### Response features
 - **JSON Selector**: Extract specific fields from a JSON response using a json selector syntax, This feature enables precise control over the data you want to interact with from your responses.
@@ -137,6 +139,40 @@ return totalCount
 ```
 
 ![docs/img.png](docs/lua.png)
+
+### Button Actions
+
+Each Stream Deck button selects one press action:
+
+- `Open Browser` opens the templated Browser URL and falls back to the API URL when it is empty.
+- `Refresh Request` executes the configured request once and updates the button through the existing JSON selector, response Lua, and response mapping pipeline.
+- `Execute Lua` runs the dedicated Action Lua Script. This script is separate from the response Lua Script.
+
+Polling is independent from the press action. `Polling = 0` disables background requests. A positive value keeps polling enabled.
+
+Action Lua receives these globals:
+
+- `_G.ButtonContextID` contains the clicked Stream Deck button context ID.
+- `_G.ButtonConfig` contains the saved button configuration except `actionScript`.
+- `_G.http.request(options)` sends a synchronous HTTP request.
+
+The HTTP options table requires `method` and `url`. It accepts optional `headers`, `body`, and positive `timeout_seconds` fields. The returned table contains `status_code`, `headers`, and `body`. HTTP error status codes are returned normally; invalid options, transport failures, timeouts, and cancellation raise Lua errors.
+
+```lua
+local response = http.request({
+  method = "POST",
+  url = ButtonConfig.apiUrl,
+  headers = {
+    Authorization = ButtonConfig.headers.Authorization
+  },
+  body = ButtonConfig.body,
+  timeout_seconds = 10
+})
+
+return response.status_code
+```
+
+Returning a string, number, or boolean updates the button through its title prefix and response mapping. Returning `nil` leaves the button unchanged.
 
 ## Dependencies
 - [streamdeck-sdk-go](https://github.com/tystuyfzand/streamdeck-sdk-go) - StreamDeck SDK for Go

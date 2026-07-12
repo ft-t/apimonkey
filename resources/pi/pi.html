@@ -26,6 +26,14 @@
         <button class="sdpi-item-value" @click="save">Save All</button>
     </div>
     <hr>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Button Action</div>
+        <select class="sdpi-item-value select sdProperty" v-model="config.action">
+            <option value="openBrowser">Open Browser</option>
+            <option value="refreshRequest">Refresh Request</option>
+            <option value="executeLua">Execute Lua</option>
+        </select>
+    </div>
     <div class="sdpi-item" id="select_single">
         <div class="sdpi-item-label">Request Type</div>
         <select class="sdpi-item-value select sdProperty" v-model="config.methodType">
@@ -46,7 +54,7 @@
             <textarea type="textarea" class="sdProperty" v-model="config.body" placeholder='{"key": "value"}'></textarea>
         </span>
     </div>
-    <div class="sdpi-item">
+    <div class="sdpi-item" v-if="config.action === 'openBrowser'">
         <div class="sdpi-item-label">Browser Url</div>
         <input class="sdpi-item-value sdProperty" v-model="config.browserUrl" placeholder="https://google.com">
     </div>
@@ -55,7 +63,7 @@
         <input class="sdpi-item-value sdProperty" v-model="config.titlePrefix">
     </div>
     <div class="sdpi-item">
-        <div class="sdpi-item-label">Interval (Sec)</div>
+        <div class="sdpi-item-label">Polling (Sec, 0 = Off)</div>
         <input class="sdpi-item-value sdProperty" type="number" v-model="config.intervalSeconds">
     </div>
     <div class="sdpi-item">
@@ -82,6 +90,12 @@
         <div class="sdpi-item-label">Lua Script</div>
         <span class="sdpi-item-value textarea">
             <textarea type="textarea" class="sdProperty" v-model="config.bodyScript"></textarea>
+        </span>
+    </div>
+    <div type="textarea" class="sdpi-item" v-if="config.action === 'executeLua'">
+        <div class="sdpi-item-label">Action Lua Script</div>
+        <span class="sdpi-item-value textarea">
+            <textarea type="textarea" class="sdProperty" v-model="config.actionScript"></textarea>
         </span>
     </div>
     <hr>
@@ -167,7 +181,8 @@
         mounted() {
             console.log("app created")
             document.addEventListener('websocketCreate', () => {
-                this.config = window.actionInfo.payload.settings
+                this.config = window.actionInfo.payload.settings || {}
+                this.config.action = this.config.action || 'openBrowser'
                 this.responseMapping = []
                 this.parameters = []
                 this.headers = []
