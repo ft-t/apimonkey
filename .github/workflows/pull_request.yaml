@@ -45,3 +45,23 @@ jobs:
         with:
           version: latest
           args: --timeout=5m --tests=false ./...
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+  govulncheck:
+    runs-on: ubuntu-latest
+    container: golang:1.26.5-alpine
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: apk update && apk add git
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: make security-govulncheck

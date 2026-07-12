@@ -23,3 +23,12 @@ lint:
 .PHONY: generate
 generate:
 	go generate ./...
+
+.PHONY: security security-trivy security-govulncheck
+security: security-trivy security-govulncheck
+
+security-trivy:
+	trivy fs --format table --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL .
+
+security-govulncheck:
+	govulncheck ./...
