@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -43,7 +44,7 @@ func main() {
 		instance.NewDefaultFactory(
 			sdk2.NewSDK(),
 			executor.NewExecutor(
-				scripts.NewLua(),
+				scripts.NewLua(http.DefaultClient),
 			),
 		),
 	)
