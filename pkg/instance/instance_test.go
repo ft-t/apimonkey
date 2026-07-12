@@ -286,6 +286,40 @@ func TestInstanceStopCancelsAction(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
+func TestInstanceConfigUpdateDoesNotCancelAction(t *testing.T) {
+	controller := gomock.NewController(t)
+	actionExecutor := NewMockExecutor(controller)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	actionContextError := make(chan error, 1)
+	actionExecutor.EXPECT().ExecuteAction(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ executor.ExecuteActionRequest) (*executor.ExecuteActionResponse, error) {
+		close(started)
+		<-release
+		actionContextError <- ctx.Err()
+
+		return &executor.ExecuteActionResponse{}, nil
+	})
+	subject := instance.NewInstance("button-1", actionExecutor, NewMockSDK(controller), NewMockBrowserOpener(controller))
+	config := common.Config{Action: common.ActionExecuteLua, ActionScript: "return nil"}
+	require.NoError(t, subject.SetConfig(configValue(t, config)))
+	subject.StartAsync(context.Background())
+	result := make(chan error, 1)
+
+	go func() {
+		result <- subject.KeyPressed(context.Background())
+	}()
+	<-started
+	config.ActionScript = "return 'updated'"
+	require.NoError(t, subject.SetConfig(configValue(t, config)))
+	close(release)
+	err := <-result
+	ctxErr := <-actionContextError
+	subject.Stop()
+
+	require.NoError(t, err)
+	require.NoError(t, ctxErr)
+}
+
 func configValue(t *testing.T, config common.Config) *fastjson.Value {
 	data, err := json.Marshal(config)
 	require.NoError(t, err)

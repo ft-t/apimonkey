@@ -19,6 +19,8 @@ import (
 
 var lg zerolog.Logger
 
+type keyPressFunc func(ctx context.Context, ctxID string) error
+
 func recoverPanic() {
 	if rec := recover(); rec != nil {
 		switch v := rec.(type) {
@@ -28,6 +30,16 @@ func recoverPanic() {
 			lg.Error().Msgf("%v", v)
 		}
 	}
+}
+
+func startKeyPress(ctx context.Context, ctxID string, keyPress keyPressFunc) {
+	go func() {
+		defer recoverPanic()
+
+		if err := keyPress(ctx, ctxID); err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("error handling key press")
+		}
+	}()
 }
 
 func main() {
@@ -97,10 +109,7 @@ func main() {
 	})
 
 	sdk.AddHandler(func(event *sdk.KeyDownEvent) {
-		if err := manager.KeyPressed(pluginCtx, event.Context); err != nil {
-			lg.Err(err).Send()
-			return
-		}
+		startKeyPress(pluginCtx, event.Context, manager.KeyPressed)
 	})
 
 	lg.Info().Msgf("Starting StreamDeck plugin. args %v", os.Args)

@@ -170,6 +170,47 @@ func TestLuaExecuteActionTransportFailure(t *testing.T) {
 	require.ErrorContains(t, err, "connection failed")
 }
 
+func TestLuaExecuteActionHTTPReadFailure(t *testing.T) {
+	controller := gomock.NewController(t)
+	responseBody := NewMockReadCloser(controller)
+	responseBody.EXPECT().Read(gomock.Any()).Return(0, errors.New("read failed"))
+	responseBody.EXPECT().Close().Return(nil)
+	httpClient := NewMockHTTPClient(controller)
+	httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       responseBody,
+	}, nil)
+	executor := scripts.NewLua(httpClient)
+
+	result, err := executor.ExecuteAction(context.Background(), `return http.request({method = "GET", url = "https://example.test"})`, "button-1", common.Config{})
+
+	assert.Nil(t, result)
+	require.ErrorContains(t, err, "read HTTP response body: read failed")
+}
+
+func TestLuaExecuteActionHTTPCloseFailure(t *testing.T) {
+	controller := gomock.NewController(t)
+	responseBody := NewMockReadCloser(controller)
+	gomock.InOrder(
+		responseBody.EXPECT().Read(gomock.Any()).DoAndReturn(func(data []byte) (int, error) {
+			return copy(data, "accepted"), nil
+		}),
+		responseBody.EXPECT().Read(gomock.Any()).Return(0, io.EOF),
+		responseBody.EXPECT().Close().Return(errors.New("close failed")),
+	)
+	httpClient := NewMockHTTPClient(controller)
+	httpClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       responseBody,
+	}, nil)
+	executor := scripts.NewLua(httpClient)
+
+	result, err := executor.ExecuteAction(context.Background(), `return http.request({method = "GET", url = "https://example.test"})`, "button-1", common.Config{})
+
+	assert.Nil(t, result)
+	require.ErrorContains(t, err, "close HTTP response body: close failed")
+}
+
 func TestLuaExecuteCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

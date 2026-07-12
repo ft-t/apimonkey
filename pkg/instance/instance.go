@@ -25,10 +25,7 @@ type DefaultInstance struct {
 	ctxID          string
 	cfg            common.Config
 	mut            sync.Mutex
-	parentCtx      context.Context
-	ctx            context.Context
-	ctxCancel      context.CancelFunc
-	started        bool
+	lifecycle      *lifecycle
 	actionInFlight atomic.Bool
 	executor       Executor
 	sdk            SDK
@@ -82,7 +79,7 @@ func (i *DefaultInstance) SetConfig(payload *fastjson.Value) error {
 
 	i.mut.Lock()
 	i.cfg = tempConfig.Clone()
-	if i.started {
+	if i.lifecycle != nil {
 		i.restartPollingWithoutLock()
 	}
 	i.mut.Unlock()
@@ -102,17 +99,18 @@ func (i *DefaultInstance) StartAsync(parent context.Context) {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
-	i.parentCtx = parent
-	i.started = true
+	if i.lifecycle != nil {
+		i.lifecycle.Stop()
+	}
+	i.lifecycle = newLifecycle(parent)
 	i.restartPollingWithoutLock()
 }
 
 func (i *DefaultInstance) restartPollingWithoutLock() {
-	i.stopWithoutLock()
-
-	i.ctx, i.ctxCancel = context.WithCancel(i.parentCtx)
 	if i.cfg.IntervalSeconds > 0 {
-		go i.run(i.ctx)
+		go i.run(i.lifecycle.RestartPolling())
+	} else {
+		i.lifecycle.StopPolling()
 	}
 }
 
@@ -246,18 +244,11 @@ func (i *DefaultInstance) Stop() {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
-	i.stopWithoutLock()
-	i.parentCtx = nil
-	i.ctx = nil
-	i.started = false
-}
-
-func (i *DefaultInstance) stopWithoutLock() {
-	if i.ctxCancel != nil {
-		i.ctxCancel()
+	if i.lifecycle != nil {
+		i.lifecycle.Stop()
 	}
 
-	i.ctxCancel = nil
+	i.lifecycle = nil
 }
 
 func (i *DefaultInstance) KeyPressed(ctx context.Context) error {
@@ -349,5 +340,10 @@ func (i *DefaultInstance) actionSnapshot() (common.Config, context.Context) {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
-	return i.cfg.Clone(), i.ctx
+	var lifecycleCtx context.Context
+	if i.lifecycle != nil {
+		lifecycleCtx = i.lifecycle.Context()
+	}
+
+	return i.cfg.Clone(), lifecycleCtx
 }
