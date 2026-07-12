@@ -109,3 +109,21 @@ func (e *Executor) Execute(
 		Code:     resp.StatusCode,
 	}, nil
 }
+
+func (e *Executor) ExecuteAction(
+	ctx context.Context,
+	executeReq ExecuteActionRequest,
+) (*ExecuteActionResponse, error) {
+	config := executeReq.Config.Clone()
+	value, err := e.executor.ExecuteAction(
+		ctx,
+		config.ActionScript,
+		executeReq.ButtonContextID,
+		config,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "execute action script")
+	}
+
+	return &ExecuteActionResponse{Value: value}, nil
+}
