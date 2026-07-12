@@ -15,6 +15,20 @@ type Executor interface {
 		ctx context.Context,
 		executeReq executor.ExecuteRequest,
 	) (*executor.ExecuteResponse, error)
+	ExecuteAction(
+		ctx context.Context,
+		executeReq executor.ExecuteActionRequest,
+	) (*executor.ExecuteActionResponse, error)
+}
+
+type BrowserOpener interface {
+	Open(url string) error
+}
+
+type BrowserOpenerFunc func(url string) error
+
+func (f BrowserOpenerFunc) Open(url string) error {
+	return f(url)
 }
 
 type SDK interface {
@@ -30,7 +44,7 @@ type Factory interface {
 
 type Instance interface {
 	SetConfig(payload *fastjson.Value) error
-	StartAsync()
+	StartAsync(ctx context.Context)
 	Stop()
-	KeyPressed() error
+	KeyPressed(ctx context.Context) error
 }

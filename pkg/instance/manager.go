@@ -1,6 +1,7 @@
 package instance
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -36,7 +37,7 @@ func (m *Manager) InitInstance(ctxId string) (Instance, error) {
 	return instance, nil
 }
 
-func (m *Manager) StartAsync(ctxId string) error {
+func (m *Manager) StartAsync(ctx context.Context, ctxId string) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	instance, ok := m.instances[ctxId]
@@ -45,12 +46,12 @@ func (m *Manager) StartAsync(ctxId string) error {
 		return errors.New("instance not found")
 	}
 
-	instance.StartAsync()
+	instance.StartAsync(ctx)
 
 	return nil
 }
 
-func (m *Manager) KeyPressed(ctxId string) error {
+func (m *Manager) KeyPressed(ctx context.Context, ctxId string) error {
 	m.mut.Lock()
 	instance, ok := m.instances[ctxId]
 	m.mut.Unlock()
@@ -59,7 +60,7 @@ func (m *Manager) KeyPressed(ctxId string) error {
 		return errors.New("instance not found")
 	}
 
-	if err := instance.KeyPressed(); err != nil {
+	if err := instance.KeyPressed(ctx); err != nil {
 		return err
 	}
 

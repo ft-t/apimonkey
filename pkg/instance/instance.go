@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -21,25 +22,31 @@ import (
 )
 
 type DefaultInstance struct {
-	ctxID     string
-	cfg       *common.Config
-	mut       sync.Mutex
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	executor  Executor
-	sdk       SDK
+	ctxID          string
+	cfg            common.Config
+	mut            sync.Mutex
+	parentCtx      context.Context
+	ctx            context.Context
+	ctxCancel      context.CancelFunc
+	started        bool
+	actionInFlight atomic.Bool
+	executor       Executor
+	sdk            SDK
+	browser        BrowserOpener
 }
 
 func NewInstance(
 	ctxID string,
 	executor Executor,
 	sdk SDK,
+	browserOpener BrowserOpener,
 ) *DefaultInstance {
 	return &DefaultInstance{
 		ctxID:    ctxID,
 		mut:      sync.Mutex{},
 		executor: executor,
 		sdk:      sdk,
+		browser:  browserOpener,
 	}
 }
 
@@ -49,6 +56,10 @@ func (i *DefaultInstance) SDK() SDK {
 
 func (i *DefaultInstance) Executor() Executor {
 	return i.executor
+}
+
+func (i *DefaultInstance) BrowserOpener() BrowserOpener {
+	return i.browser
 }
 
 func (i *DefaultInstance) ContextID() string {
@@ -64,7 +75,17 @@ func (i *DefaultInstance) SetConfig(payload *fastjson.Value) error {
 		return errors.Wrap(err, "failed to unmarshal settings")
 	}
 
-	i.cfg = &tempConfig
+	if err := tempConfig.Validate(); err != nil {
+		i.ShowAlert()
+		return err
+	}
+
+	i.mut.Lock()
+	i.cfg = tempConfig.Clone()
+	if i.started {
+		i.restartPollingWithoutLock()
+	}
+	i.mut.Unlock()
 
 	return nil
 }
@@ -77,72 +98,88 @@ func (i *DefaultInstance) ShowOk() {
 	i.sdk.ShowOk(i.ctxID)
 }
 
-func (i *DefaultInstance) StartAsync() {
+func (i *DefaultInstance) StartAsync(parent context.Context) {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
-	i.stopWithoutLock()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	i.ctx = ctx
-	i.ctxCancel = cancel
-
-	go i.run()
+	i.parentCtx = parent
+	i.started = true
+	i.restartPollingWithoutLock()
 }
 
-func (i *DefaultInstance) run() {
-	ctx := i.ctx
+func (i *DefaultInstance) restartPollingWithoutLock() {
+	i.stopWithoutLock()
 
-	for ctx.Err() == nil {
-		interval := 30
-		if i.cfg.IntervalSeconds > 0 {
-			interval = i.cfg.IntervalSeconds
-		}
+	i.ctx, i.ctxCancel = context.WithCancel(i.parentCtx)
+	if i.cfg.IntervalSeconds > 0 {
+		go i.run(i.ctx)
+	}
+}
+
+func (i *DefaultInstance) run(ctx context.Context) {
+	for {
+		config := i.configSnapshot()
 
 		newLogger := log.With().
 			Str("id", uuid.NewString()).
 			Str("ctxID", i.ctxID).
 			Logger()
 
-		innerCtx, innerCancel := context.WithCancel(ctx)
-		innerCtx = newLogger.WithContext(innerCtx)
+		requestCtx := newLogger.WithContext(ctx)
+		if err := i.executeSingleRequest(requestCtx, config); err != nil {
+			zerolog.Ctx(requestCtx).Err(err).Msg("error refreshing request")
+			i.ShowAlert()
+		} else if config.ShowSuccessNotification {
+			i.ShowOk()
+		}
 
-		i.ExecuteSingleRequest(innerCtx)
-		innerCancel()
+		timer := time.NewTimer(time.Duration(config.IntervalSeconds) * time.Second)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
 
-		time.Sleep(time.Duration(interval) * time.Second)
+			return
+		case <-timer.C:
+		}
 	}
 }
 
 func (i *DefaultInstance) ExecuteSingleRequest(
 	ctx context.Context,
-) {
+) error {
+	return i.executeSingleRequest(ctx, i.configSnapshot())
+}
+
+func (i *DefaultInstance) executeSingleRequest(
+	ctx context.Context,
+	config common.Config,
+) error {
 	resp, err := i.executor.Execute(ctx, executor.ExecuteRequest{
-		Config: *i.cfg,
+		Config: config,
 	})
 	if err != nil {
-		zerolog.Ctx(ctx).Err(err).Msg("error executing request")
-		i.ShowAlert()
-		return
+		return errors.WithStack(err)
 	}
 
-	if handleErr := i.HandleResponse(ctx, resp); handleErr != nil {
-		zerolog.Ctx(ctx).Err(handleErr).Msg("error handling response")
-		i.ShowAlert()
-		return
-	}
-
-	if i.cfg.ShowSuccessNotification {
-		i.ShowOk()
-	}
+	return i.handleResponse(ctx, resp, config)
 }
 
 func (i *DefaultInstance) HandleResponse(
 	ctx context.Context,
 	response *executor.ExecuteResponse,
 ) error {
+	return i.handleResponse(ctx, response, i.configSnapshot())
+}
+
+func (i *DefaultInstance) handleResponse(
+	ctx context.Context,
+	response *executor.ExecuteResponse,
+	config common.Config,
+) error {
 	var sb strings.Builder
-	prefix, err := utils.ExecuteTemplate(i.cfg.TitlePrefix, i.cfg.TemplateParameters)
+	prefix, err := utils.ExecuteTemplate(config.TitlePrefix, config.TemplateParameters)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute template on prefix")
 	}
@@ -151,7 +188,7 @@ func (i *DefaultInstance) HandleResponse(
 		sb.WriteString(strings.ReplaceAll(prefix, "\\n", "\n") + "\n")
 	}
 
-	if len(i.cfg.ResponseMapper) == 0 {
+	if len(config.ResponseMapper) == 0 {
 		sb.WriteString(response.Response)
 
 		i.sdk.SetTitle(i.ctxID, sb.String(), 0)
@@ -160,8 +197,8 @@ func (i *DefaultInstance) HandleResponse(
 		return nil
 	}
 
-	def, defaultOk := i.cfg.ResponseMapper["*"]
-	mapped, ok := i.cfg.ResponseMapper[response.Response]
+	def, defaultOk := config.ResponseMapper["*"]
+	mapped, ok := config.ResponseMapper[response.Response]
 
 	if !ok && defaultOk {
 		mapped = def
@@ -210,6 +247,9 @@ func (i *DefaultInstance) Stop() {
 	defer i.mut.Unlock()
 
 	i.stopWithoutLock()
+	i.parentCtx = nil
+	i.ctx = nil
+	i.started = false
 }
 
 func (i *DefaultInstance) stopWithoutLock() {
@@ -220,22 +260,94 @@ func (i *DefaultInstance) stopWithoutLock() {
 	i.ctxCancel = nil
 }
 
-func (i *DefaultInstance) KeyPressed() error {
-	targetUrl := i.cfg.BrowserUrl
-	if targetUrl == "" {
-		targetUrl = i.cfg.ApiUrl
+func (i *DefaultInstance) KeyPressed(ctx context.Context) error {
+	if !i.actionInFlight.CompareAndSwap(false, true) {
+		return nil
 	}
+	defer i.actionInFlight.Store(false)
 
-	targetUrl, err := utils.ExecuteTemplate(targetUrl, i.cfg.TemplateParameters)
+	config, lifecycleCtx := i.actionSnapshot()
+	actionCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stopLifecycleCancellation := func() bool { return true }
+	if lifecycleCtx != nil {
+		stopLifecycleCancellation = context.AfterFunc(lifecycleCtx, cancel)
+	}
+	defer stopLifecycleCancellation()
+
+	newLogger := log.With().
+		Str("id", uuid.NewString()).
+		Str("ctxID", i.ctxID).
+		Logger()
+	actionCtx = newLogger.WithContext(actionCtx)
+
+	var err error
+	switch config.Action {
+	case common.ActionOpenBrowser:
+		err = i.openBrowser(config)
+	case common.ActionRefreshRequest:
+		err = i.executeSingleRequest(actionCtx, config)
+	case common.ActionExecuteLua:
+		err = i.executeLuaAction(actionCtx, config)
+	default:
+		err = errors.Newf("unknown button action: %s", config.Action)
+	}
 	if err != nil {
 		i.ShowAlert()
-		return errors.Wrap(err, "failed to execute template")
+		return errors.WithStack(err)
 	}
 
-	if err = utils.OpenBrowser(targetUrl); err != nil {
-		i.ShowAlert()
-		return err
+	if config.ShowSuccessNotification {
+		i.ShowOk()
 	}
 
 	return nil
+}
+
+func (i *DefaultInstance) openBrowser(config common.Config) error {
+	targetUrl := config.BrowserUrl
+	if targetUrl == "" {
+		targetUrl = config.ApiUrl
+	}
+
+	targetUrl, err := utils.ExecuteTemplate(targetUrl, config.TemplateParameters)
+	if err != nil {
+		return errors.Wrap(err, "failed to execute template")
+	}
+
+	if err = i.browser.Open(targetUrl); err != nil {
+		return errors.Wrap(err, "open browser")
+	}
+
+	return nil
+}
+
+func (i *DefaultInstance) executeLuaAction(ctx context.Context, config common.Config) error {
+	response, err := i.executor.ExecuteAction(ctx, executor.ExecuteActionRequest{
+		ButtonContextID: i.ctxID,
+		Config:          config,
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if response.Value == nil {
+		return nil
+	}
+
+	return i.handleResponse(ctx, &executor.ExecuteResponse{Response: *response.Value}, config)
+}
+
+func (i *DefaultInstance) configSnapshot() common.Config {
+	i.mut.Lock()
+	defer i.mut.Unlock()
+
+	return i.cfg.Clone()
+}
+
+func (i *DefaultInstance) actionSnapshot() (common.Config, context.Context) {
+	i.mut.Lock()
+	defer i.mut.Unlock()
+
+	return i.cfg.Clone(), i.ctx
 }

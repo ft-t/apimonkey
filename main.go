@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/ft-t/apimonkey/pkg/instance"
 	"github.com/ft-t/apimonkey/pkg/scripts"
 	sdk2 "github.com/ft-t/apimonkey/pkg/sdk"
+	"github.com/ft-t/apimonkey/pkg/utils"
 )
 
 var lg zerolog.Logger
@@ -39,6 +41,8 @@ func main() {
 
 	lg = zerolog.New(zerolog.MultiLevelWriter(os.Stdout, logFile)).With().Timestamp().Logger()
 	log.Logger = lg
+	pluginCtx, cancel := context.WithCancel(lg.WithContext(context.Background()))
+	defer cancel()
 
 	manager := instance.NewManager(
 		instance.NewDefaultFactory(
@@ -46,6 +50,7 @@ func main() {
 			executor.NewExecutor(
 				scripts.NewLua(http.DefaultClient),
 			),
+			instance.BrowserOpenerFunc(utils.OpenBrowser),
 		),
 	)
 
@@ -69,7 +74,7 @@ func main() {
 			return
 		}
 
-		if err = manager.StartAsync(event.Context); err != nil {
+		if err = manager.StartAsync(pluginCtx, event.Context); err != nil {
 			lg.Err(err).Send()
 			return
 		}
@@ -92,7 +97,7 @@ func main() {
 	})
 
 	sdk.AddHandler(func(event *sdk.KeyDownEvent) {
-		if err := manager.KeyPressed(event.Context); err != nil {
+		if err := manager.KeyPressed(pluginCtx, event.Context); err != nil {
 			lg.Err(err).Send()
 			return
 		}
