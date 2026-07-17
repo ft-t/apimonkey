@@ -15,7 +15,7 @@ jobs:
       ENVIRONMENT: ci
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - run: apk update && apk add curl openssl git openssh-client build-base && mkdir -p /root/.ssh
+      - run: apk update && apk add bash curl gnupg openssl git openssh-client build-base && mkdir -p /root/.ssh
       - run: go install github.com/golang/mock/mockgen@v1.6.0
       - run: make generate
       - run: go test -json -coverprofile=/root/coverage_temp.txt -covermode=atomic ./... > /root/test.json
