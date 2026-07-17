@@ -1,5 +1,6 @@
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -13,14 +14,14 @@ jobs:
     env:
       ENVIRONMENT: ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - run: apk update && apk add curl openssl git openssh-client build-base && mkdir -p /root/.ssh
-      - run: wget -O /usr/bin/mockgen https://github.com/skynet2/mock/releases/latest/download/mockgen && chmod 777 /usr/bin/mockgen
+      - run: go install github.com/golang/mock/mockgen@v1.6.0
       - run: make generate
       - run: go test -json -coverprofile=/root/coverage_temp.txt -covermode=atomic ./... > /root/test.json
       - run: cat /root/coverage_temp.txt | grep  -v "_mock.go" | grep -v "_mocks.go" | grep  -v "_mocks_test.go" | grep -v "_mock_test.go" > /root/coverage.txt || true
       - name: Upload coverage report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: /root/coverage.txt
@@ -29,7 +30,7 @@ jobs:
         if: always()
       - run: wget https://github.com/mfridman/tparse/releases/latest/download/tparse_linux_x86_64 -O tparse && chmod 777 tparse && ./tparse -all -file=/root/test.json
         if: always()
-      - uses: guyarb/golang-test-annotations@v0.7.0
+      - uses: guyarb/golang-test-annotations@96fc379b171c49932041d6c789e73331a7bdeec1 # v0.9.0
         if: always()
         with:
           test-results: /root/test.json
@@ -39,17 +40,17 @@ jobs:
     env:
       ENVIRONMENT: ci
     steps:
-      - uses: actions/checkout@v4
-      - uses: golangci/golangci-lint-action@v6.1.1
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         if: github.ref != 'refs/heads/master' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/uat'
         with:
-          version: latest
+          version: v2.12.2
           args: --timeout=5m --tests=false ./...
   trivy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -61,7 +62,26 @@ jobs:
     runs-on: ubuntu-latest
     container: golang:1.26.5-alpine
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - run: apk update && apk add git
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - run: apk update && apk add git make
       - run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - run: make security-govulncheck
+  package:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      TARGET_VERSION: 1.0.${{ github.run_number }}.0
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set version in manifest
+        run: jq --arg ver "$TARGET_VERSION" '.Version = $ver' ./resources/manifest.json > temp.json && mv temp.json ./resources/manifest.json
+      - name: Build test package
+        run: |
+          docker build -t apimonkey-package .
+          docker run --rm -v "$PWD/tmpdist:/tmpdist" apimonkey-package sh -c "cp /dist/com.ftt.apimonkey.sdPlugin.zip /tmpdist/com.ftt.apimonkey.sdPlugin.zip"
+      - name: Upload test package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: tmpdist/com.ftt.apimonkey.sdPlugin.zip
+          archive: false
+          if-no-files-found: error
