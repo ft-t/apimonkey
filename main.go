@@ -96,6 +96,8 @@ func main() {
 		}
 	})
 	sdk.AddHandler(func(event *sdk.WillDisappearEvent) {
+		defer recoverPanic()
+
 		if event.Payload == nil {
 			return
 		}
@@ -106,6 +108,8 @@ func main() {
 	})
 
 	sdk.AddHandler(func(event *sdk.ReceiveSettingsEvent) {
+		defer recoverPanic()
+
 		if err := manager.SetInstanceConfig(event.Context, event.Settings); err != nil {
 			lg.Err(err).Send()
 			return
