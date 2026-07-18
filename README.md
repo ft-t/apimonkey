@@ -22,7 +22,7 @@ API Monkey is a Stream Deck plugin for sending HTTP requests and displaying the 
 
 - Windows 10 or later, x64
 - macOS 10.15 or later, Apple silicon
-- Stream Deck 6.4 or later
+- Stream Deck 6.9 or later
 
 ## Installation
 
