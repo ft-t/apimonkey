@@ -31,6 +31,16 @@ func (f BrowserOpenerFunc) Open(url string) error {
 	return f(url)
 }
 
+type ImageReader interface {
+	ReadFile(filename string) ([]byte, error)
+}
+
+type ImageReaderFunc func(filename string) ([]byte, error)
+
+func (f ImageReaderFunc) ReadFile(filename string) ([]byte, error) {
+	return f(filename)
+}
+
 type SDK interface {
 	ShowAlert(ctxID string)
 	ShowOk(ctxID string)

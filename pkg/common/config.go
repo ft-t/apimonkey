@@ -27,13 +27,17 @@ type Config struct {
 	TitlePrefix             string            `json:"titlePrefix"`
 	BodyScript              string            `json:"bodyScript"`
 	ShowSuccessNotification bool              `json:"showSuccessNotification"`
+	InsecureSkipVerify      bool              `json:"insecureSkipVerify"`
 	MethodType              string            `json:"methodType"`
 	Body                    string            `json:"body"`
 }
 
 func (c *Config) Validate() error {
 	if c.Action == "" {
-		c.Action = ActionOpenBrowser
+		c.Action = ActionRefreshRequest
+		if c.BrowserUrl != "" {
+			c.Action = ActionOpenBrowser
+		}
 	}
 
 	switch c.Action {

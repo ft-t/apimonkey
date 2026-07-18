@@ -3,6 +3,8 @@ package executor
 import (
 	"context"
 
+	"github.com/imroc/req/v3"
+
 	"github.com/ft-t/apimonkey/pkg/common"
 )
 
@@ -16,4 +18,8 @@ type ScriptExecutor interface {
 		buttonContextID string,
 		config common.Config,
 	) (*string, error)
+}
+
+type HTTPClient interface {
+	NewRequest() *req.Request
 }

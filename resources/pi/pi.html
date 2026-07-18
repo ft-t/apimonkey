@@ -48,6 +48,15 @@
         <div class="sdpi-item-label">API URL (*)</div>
         <input class="sdpi-item-value sdProperty" placeholder="https://api.com" v-model="config.apiUrl">
     </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">TLS Verification</div>
+        <div type="checkbox" class="sdpi-item">
+            <div class="sdpi-item-value">
+                <input id="insecureSkipVerify" class="sdProperty sdCheckbox" type="checkbox" v-model="config.insecureSkipVerify">
+                <label for="insecureSkipVerify" class="sdpi-item-label"><span></span>Ignore certificate errors (unsafe)</label>
+            </div>
+        </div>
+    </div>
     <div type="textarea" class="sdpi-item" v-if="config.methodType !== 'GET'">
         <div class="sdpi-item-label">Request Body</div>
         <span class="sdpi-item-value textarea">
@@ -182,7 +191,7 @@
             console.log("app created")
             document.addEventListener('websocketCreate', () => {
                 this.config = window.actionInfo.payload.settings || {}
-                this.config.action = this.config.action || 'openBrowser'
+                this.config.action = this.config.action || (this.config.browserUrl ? 'openBrowser' : 'refreshRequest')
                 this.responseMapping = []
                 this.parameters = []
                 this.headers = []

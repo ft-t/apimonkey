@@ -14,13 +14,15 @@ func TestDefaultFactory(t *testing.T) {
 	sdk := NewMockSDK(controller)
 	executor := NewMockExecutor(controller)
 	browserOpener := NewMockBrowserOpener(controller)
+	imageReader := NewMockImageReader(controller)
 
-	factory := instance.NewDefaultFactory(sdk, executor, browserOpener)
+	factory := instance.NewDefaultFactory(sdk, executor, browserOpener, imageReader)
 
 	instanceRef := factory.Create("1231231").(*instance.DefaultInstance)
 
 	assert.Equal(t, sdk, instanceRef.SDK())
 	assert.Equal(t, executor, instanceRef.Executor())
 	assert.Equal(t, browserOpener, instanceRef.BrowserOpener())
+	assert.Equal(t, imageReader, instanceRef.ImageReader())
 	assert.Equal(t, "1231231", instanceRef.ContextID())
 }

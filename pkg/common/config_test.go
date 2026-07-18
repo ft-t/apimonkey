@@ -13,10 +13,16 @@ func TestConfigValidateSuccess(t *testing.T) {
 	tests := []struct {
 		name           string
 		action         common.Action
+		browserURL     string
 		expectedAction common.Action
 	}{
 		{
-			name:           "missing action defaults to browser",
+			name:           "missing action without browser URL defaults to refresh",
+			expectedAction: common.ActionRefreshRequest,
+		},
+		{
+			name:           "missing action with browser URL defaults to browser",
+			browserURL:     "https://example.test",
 			expectedAction: common.ActionOpenBrowser,
 		},
 		{
@@ -38,7 +44,7 @@ func TestConfigValidateSuccess(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config := common.Config{Action: test.action}
+			config := common.Config{Action: test.action, BrowserUrl: test.browserURL}
 
 			err := config.Validate()
 

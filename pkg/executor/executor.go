@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/imroc/req/v3"
 	"github.com/rs/zerolog"
 	"github.com/tidwall/gjson"
 
@@ -13,14 +12,20 @@ import (
 )
 
 type Executor struct {
-	executor ScriptExecutor
+	executor           ScriptExecutor
+	httpClient         HTTPClient
+	insecureHTTPClient HTTPClient
 }
 
 func NewExecutor(
 	executor ScriptExecutor,
+	httpClient HTTPClient,
+	insecureHTTPClient HTTPClient,
 ) *Executor {
 	return &Executor{
-		executor: executor,
+		executor:           executor,
+		httpClient:         httpClient,
+		insecureHTTPClient: insecureHTTPClient,
 	}
 }
 
@@ -28,7 +33,11 @@ func (e *Executor) Execute(
 	ctx context.Context,
 	executeReq ExecuteRequest,
 ) (*ExecuteResponse, error) {
-	httpReq := req.C().NewRequest()
+	httpClient := e.httpClient
+	if executeReq.Config.InsecureSkipVerify {
+		httpClient = e.insecureHTTPClient
+	}
+	httpReq := httpClient.NewRequest()
 	httpReq = httpReq.SetContext(ctx)
 	httpReq.Method = executeReq.Config.MethodType
 

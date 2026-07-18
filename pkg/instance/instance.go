@@ -30,6 +30,7 @@ type DefaultInstance struct {
 	executor       Executor
 	sdk            SDK
 	browser        BrowserOpener
+	imageReader    ImageReader
 }
 
 func NewInstance(
@@ -37,13 +38,15 @@ func NewInstance(
 	executor Executor,
 	sdk SDK,
 	browserOpener BrowserOpener,
+	imageReader ImageReader,
 ) *DefaultInstance {
 	return &DefaultInstance{
-		ctxID:    ctxID,
-		mut:      sync.Mutex{},
-		executor: executor,
-		sdk:      sdk,
-		browser:  browserOpener,
+		ctxID:       ctxID,
+		mut:         sync.Mutex{},
+		executor:    executor,
+		sdk:         sdk,
+		browser:     browserOpener,
+		imageReader: imageReader,
 	}
 }
 
@@ -57,6 +60,10 @@ func (i *DefaultInstance) Executor() Executor {
 
 func (i *DefaultInstance) BrowserOpener() BrowserOpener {
 	return i.browser
+}
+
+func (i *DefaultInstance) ImageReader() ImageReader {
+	return i.imageReader
 }
 
 func (i *DefaultInstance) ContextID() string {
@@ -103,6 +110,7 @@ func (i *DefaultInstance) StartAsync(parent context.Context) {
 		i.lifecycle.Stop()
 	}
 	i.lifecycle = newLifecycle(parent)
+	go i.refresh(i.lifecycle.Context())
 	i.restartPollingWithoutLock()
 }
 
@@ -117,20 +125,6 @@ func (i *DefaultInstance) restartPollingWithoutLock() {
 func (i *DefaultInstance) run(ctx context.Context) {
 	for {
 		config := i.configSnapshot()
-
-		newLogger := log.With().
-			Str("id", uuid.NewString()).
-			Str("ctxID", i.ctxID).
-			Logger()
-
-		requestCtx := newLogger.WithContext(ctx)
-		if err := i.executeSingleRequest(requestCtx, config); err != nil {
-			zerolog.Ctx(requestCtx).Err(err).Msg("error refreshing request")
-			i.ShowAlert()
-		} else if config.ShowSuccessNotification {
-			i.ShowOk()
-		}
-
 		timer := time.NewTimer(time.Duration(config.IntervalSeconds) * time.Second)
 		select {
 		case <-ctx.Done():
@@ -141,6 +135,25 @@ func (i *DefaultInstance) run(ctx context.Context) {
 			return
 		case <-timer.C:
 		}
+
+		i.refresh(ctx)
+	}
+}
+
+func (i *DefaultInstance) refresh(ctx context.Context) {
+	config := i.configSnapshot()
+
+	newLogger := log.With().
+		Str("id", uuid.NewString()).
+		Str("ctxID", i.ctxID).
+		Logger()
+
+	requestCtx := newLogger.WithContext(ctx)
+	if err := i.executeSingleRequest(requestCtx, config); err != nil {
+		zerolog.Ctx(requestCtx).Err(err).Msg("error refreshing request")
+		i.showRequestFailure(requestCtx)
+	} else if config.ShowSuccessNotification {
+		i.ShowOk()
 	}
 }
 
@@ -222,7 +235,7 @@ func (i *DefaultInstance) handleResponse(
 }
 
 func (i *DefaultInstance) handleImageMapping(_ context.Context, mapped string) error {
-	fileData, err := utils.ReadFile(mapped)
+	fileData, err := i.imageReader.ReadFile(mapped)
 
 	if err != nil {
 		return errors.Join(err, errors.New("image file not found"))
@@ -238,6 +251,14 @@ func (i *DefaultInstance) handleImageMapping(_ context.Context, mapped string) e
 	i.sdk.SetImage(i.ctxID, imageData, 0)
 
 	return nil
+}
+
+func (i *DefaultInstance) showRequestFailure(ctx context.Context) {
+	if err := i.handleImageMapping(ctx, "fail.svg"); err != nil {
+		zerolog.Ctx(ctx).Err(err).Msg("error showing request failure")
+	}
+
+	i.ShowAlert()
 }
 
 func (i *DefaultInstance) Stop() {
@@ -284,7 +305,11 @@ func (i *DefaultInstance) KeyPressed(ctx context.Context) error {
 		err = errors.Newf("unknown button action: %s", config.Action)
 	}
 	if err != nil {
-		i.ShowAlert()
+		if config.Action == common.ActionRefreshRequest {
+			i.showRequestFailure(actionCtx)
+		} else {
+			i.ShowAlert()
+		}
 		return errors.WithStack(err)
 	}
 

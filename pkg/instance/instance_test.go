@@ -45,7 +45,7 @@ func TestInstanceKeyPressedOpenBrowser(t *testing.T) {
 			controller := gomock.NewController(t)
 			browser := NewMockBrowserOpener(controller)
 			browser.EXPECT().Open(test.expectedURL).Return(nil)
-			subject := instance.NewInstance("button-1", NewMockExecutor(controller), NewMockSDK(controller), browser)
+			subject := instance.NewInstance("button-1", NewMockExecutor(controller), NewMockSDK(controller), browser, NewMockImageReader(controller))
 			require.NoError(t, subject.SetConfig(configValue(t, test.config)))
 
 			err := subject.KeyPressed(context.Background())
@@ -72,7 +72,7 @@ func TestInstanceKeyPressedRefreshRequest(t *testing.T) {
 	sdk.EXPECT().SetTitle("button-1", "Status\nready", 0)
 	sdk.EXPECT().SetImage("button-1", "", 0)
 	sdk.EXPECT().ShowOk("button-1")
-	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, config)))
 
 	err := subject.KeyPressed(context.Background())
@@ -95,7 +95,7 @@ func TestInstanceKeyPressedExecuteLua(t *testing.T) {
 	}).Return(&executor.ExecuteActionResponse{Value: &value}, nil)
 	sdk.EXPECT().SetTitle("button-1", value, 0)
 	sdk.EXPECT().SetImage("button-1", "", 0)
-	subject := instance.NewInstance("button-1", actionExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", actionExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, config)))
 
 	err := subject.KeyPressed(context.Background())
@@ -114,7 +114,7 @@ func TestInstanceKeyPressedExecuteLuaNil(t *testing.T) {
 		ButtonContextID: "button-1",
 		Config:          config,
 	}).Return(&executor.ExecuteActionResponse{}, nil)
-	subject := instance.NewInstance("button-1", actionExecutor, NewMockSDK(controller), NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", actionExecutor, NewMockSDK(controller), NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, config)))
 
 	err := subject.KeyPressed(context.Background())
@@ -126,7 +126,7 @@ func TestInstanceSetConfigFailure(t *testing.T) {
 	controller := gomock.NewController(t)
 	sdk := NewMockSDK(controller)
 	sdk.EXPECT().ShowAlert("button-1")
-	subject := instance.NewInstance("button-1", NewMockExecutor(controller), sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", NewMockExecutor(controller), sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 
 	err := subject.SetConfig(configValue(t, common.Config{Action: common.Action("unknown")}))
 
@@ -137,13 +137,13 @@ func TestInstanceKeyPressedFailure(t *testing.T) {
 	tests := []struct {
 		name          string
 		config        common.Config
-		expectFailure func(*MockExecutor, *MockBrowserOpener)
+		expectFailure func(*MockExecutor, *MockBrowserOpener, *MockImageReader, *MockSDK)
 		expectedError string
 	}{
 		{
 			name:   "browser",
 			config: common.Config{Action: common.ActionOpenBrowser, BrowserUrl: "https://example.test"},
-			expectFailure: func(_ *MockExecutor, browser *MockBrowserOpener) {
+			expectFailure: func(_ *MockExecutor, browser *MockBrowserOpener, _ *MockImageReader, _ *MockSDK) {
 				browser.EXPECT().Open("https://example.test").Return(errors.New("browser failed"))
 			},
 			expectedError: "browser failed",
@@ -151,15 +151,17 @@ func TestInstanceKeyPressedFailure(t *testing.T) {
 		{
 			name:   "refresh",
 			config: common.Config{Action: common.ActionRefreshRequest},
-			expectFailure: func(requestExecutor *MockExecutor, _ *MockBrowserOpener) {
+			expectFailure: func(requestExecutor *MockExecutor, _ *MockBrowserOpener, imageReader *MockImageReader, sdk *MockSDK) {
 				requestExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(nil, errors.New("request failed"))
+				imageReader.EXPECT().ReadFile("fail.svg").Return([]byte("<svg/>"), nil)
+				sdk.EXPECT().SetImage("button-1", gomock.Any(), 0)
 			},
 			expectedError: "request failed",
 		},
 		{
 			name:   "lua",
 			config: common.Config{Action: common.ActionExecuteLua, ActionScript: "invalid"},
-			expectFailure: func(actionExecutor *MockExecutor, _ *MockBrowserOpener) {
+			expectFailure: func(actionExecutor *MockExecutor, _ *MockBrowserOpener, _ *MockImageReader, _ *MockSDK) {
 				actionExecutor.EXPECT().ExecuteAction(gomock.Any(), gomock.Any()).Return(nil, errors.New("lua failed"))
 			},
 			expectedError: "lua failed",
@@ -172,9 +174,10 @@ func TestInstanceKeyPressedFailure(t *testing.T) {
 			dependencyExecutor := NewMockExecutor(controller)
 			browser := NewMockBrowserOpener(controller)
 			sdk := NewMockSDK(controller)
-			test.expectFailure(dependencyExecutor, browser)
+			imageReader := NewMockImageReader(controller)
+			test.expectFailure(dependencyExecutor, browser, imageReader, sdk)
 			sdk.EXPECT().ShowAlert("button-1")
-			subject := instance.NewInstance("button-1", dependencyExecutor, sdk, browser)
+			subject := instance.NewInstance("button-1", dependencyExecutor, sdk, browser, imageReader)
 			require.NoError(t, subject.SetConfig(configValue(t, test.config)))
 
 			err := subject.KeyPressed(context.Background())
@@ -198,7 +201,7 @@ func TestInstanceKeyPressedSuppressesOverlap(t *testing.T) {
 	sdk := NewMockSDK(controller)
 	sdk.EXPECT().SetTitle("button-1", "ready", 0)
 	sdk.EXPECT().SetImage("button-1", "", 0)
-	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, common.Config{Action: common.ActionRefreshRequest})))
 	firstResult := make(chan error, 1)
 
@@ -219,8 +222,11 @@ func TestInstanceKeyPressedReleasesFlagAfterFailure(t *testing.T) {
 	requestExecutor := NewMockExecutor(controller)
 	requestExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(nil, errors.New("request failed")).Times(2)
 	sdk := NewMockSDK(controller)
+	imageReader := NewMockImageReader(controller)
+	imageReader.EXPECT().ReadFile("fail.svg").Return([]byte("<svg/>"), nil).Times(2)
+	sdk.EXPECT().SetImage("button-1", gomock.Any(), 0).Times(2)
 	sdk.EXPECT().ShowAlert("button-1").Times(2)
-	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), imageReader)
 	require.NoError(t, subject.SetConfig(configValue(t, common.Config{Action: common.ActionRefreshRequest})))
 
 	firstErr := subject.KeyPressed(context.Background())
@@ -232,10 +238,21 @@ func TestInstanceKeyPressedReleasesFlagAfterFailure(t *testing.T) {
 
 func TestInstancePollingDisabled(t *testing.T) {
 	controller := gomock.NewController(t)
-	subject := instance.NewInstance("button-1", NewMockExecutor(controller), NewMockSDK(controller), NewMockBrowserOpener(controller))
+	requestExecutor := NewMockExecutor(controller)
+	called := make(chan struct{})
+	requestExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, executor.ExecuteRequest) (*executor.ExecuteResponse, error) {
+		close(called)
+
+		return &executor.ExecuteResponse{Response: "ready", Code: 200}, nil
+	})
+	sdk := NewMockSDK(controller)
+	sdk.EXPECT().SetTitle("button-1", "ready", 0)
+	sdk.EXPECT().SetImage("button-1", "", 0)
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, common.Config{IntervalSeconds: 0})))
 
 	subject.StartAsync(context.Background())
+	<-called
 	subject.Stop()
 }
 
@@ -251,7 +268,7 @@ func TestInstancePollingEnabled(t *testing.T) {
 	sdk := NewMockSDK(controller)
 	sdk.EXPECT().SetTitle("button-1", "ready", 0)
 	sdk.EXPECT().SetImage("button-1", "", 0)
-	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, common.Config{IntervalSeconds: 60})))
 
 	subject.StartAsync(context.Background())
@@ -259,9 +276,35 @@ func TestInstancePollingEnabled(t *testing.T) {
 	subject.Stop()
 }
 
+func TestInstanceInitialRefreshFailureShowsPersistentImage(t *testing.T) {
+	controller := gomock.NewController(t)
+	requestExecutor := NewMockExecutor(controller)
+	requestExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(nil, errors.New("request failed"))
+	sdk := NewMockSDK(controller)
+	imageReader := NewMockImageReader(controller)
+	failureShown := make(chan struct{})
+	imageReader.EXPECT().ReadFile("fail.svg").Return([]byte("<svg/>"), nil)
+	sdk.EXPECT().SetImage("button-1", gomock.Any(), 0)
+	sdk.EXPECT().ShowAlert("button-1").Do(func(string) {
+		close(failureShown)
+	})
+	subject := instance.NewInstance("button-1", requestExecutor, sdk, NewMockBrowserOpener(controller), imageReader)
+	require.NoError(t, subject.SetConfig(configValue(t, common.Config{})))
+
+	subject.StartAsync(context.Background())
+	<-failureShown
+	subject.Stop()
+}
+
 func TestInstanceStopCancelsAction(t *testing.T) {
 	controller := gomock.NewController(t)
 	actionExecutor := NewMockExecutor(controller)
+	initialRefresh := make(chan struct{})
+	actionExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, executor.ExecuteRequest) (*executor.ExecuteResponse, error) {
+		close(initialRefresh)
+
+		return &executor.ExecuteResponse{Response: "ready", Code: 200}, nil
+	})
 	started := make(chan struct{})
 	actionExecutor.EXPECT().ExecuteAction(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ executor.ExecuteActionRequest) (*executor.ExecuteActionResponse, error) {
 		close(started)
@@ -270,10 +313,13 @@ func TestInstanceStopCancelsAction(t *testing.T) {
 		return nil, ctx.Err()
 	})
 	sdk := NewMockSDK(controller)
+	sdk.EXPECT().SetTitle("button-1", "ready", 0)
+	sdk.EXPECT().SetImage("button-1", "", 0)
 	sdk.EXPECT().ShowAlert("button-1")
-	subject := instance.NewInstance("button-1", actionExecutor, sdk, NewMockBrowserOpener(controller))
+	subject := instance.NewInstance("button-1", actionExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
 	require.NoError(t, subject.SetConfig(configValue(t, common.Config{Action: common.ActionExecuteLua})))
 	subject.StartAsync(context.Background())
+	<-initialRefresh
 	result := make(chan error, 1)
 
 	go func() {
@@ -289,6 +335,12 @@ func TestInstanceStopCancelsAction(t *testing.T) {
 func TestInstanceConfigUpdateDoesNotCancelAction(t *testing.T) {
 	controller := gomock.NewController(t)
 	actionExecutor := NewMockExecutor(controller)
+	initialRefresh := make(chan struct{})
+	actionExecutor.EXPECT().Execute(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, executor.ExecuteRequest) (*executor.ExecuteResponse, error) {
+		close(initialRefresh)
+
+		return &executor.ExecuteResponse{Response: "ready", Code: 200}, nil
+	})
 	started := make(chan struct{})
 	release := make(chan struct{})
 	actionContextError := make(chan error, 1)
@@ -299,10 +351,14 @@ func TestInstanceConfigUpdateDoesNotCancelAction(t *testing.T) {
 
 		return &executor.ExecuteActionResponse{}, nil
 	})
-	subject := instance.NewInstance("button-1", actionExecutor, NewMockSDK(controller), NewMockBrowserOpener(controller))
-	config := common.Config{Action: common.ActionExecuteLua, ActionScript: "return nil"}
+	sdk := NewMockSDK(controller)
+	sdk.EXPECT().SetTitle("button-1", "ready", 0)
+	sdk.EXPECT().SetImage("button-1", "", 0)
+	subject := instance.NewInstance("button-1", actionExecutor, sdk, NewMockBrowserOpener(controller), NewMockImageReader(controller))
+	config := common.Config{Action: common.ActionExecuteLua, ActionScript: "return nil", IntervalSeconds: 60}
 	require.NoError(t, subject.SetConfig(configValue(t, config)))
 	subject.StartAsync(context.Background())
+	<-initialRefresh
 	result := make(chan error, 1)
 
 	go func() {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/imroc/req/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -61,8 +62,11 @@ func main() {
 			sdk2.NewSDK(),
 			executor.NewExecutor(
 				scripts.NewLua(http.DefaultClient),
+				req.C(),
+				req.C().EnableInsecureSkipVerify(),
 			),
 			instance.BrowserOpenerFunc(utils.OpenBrowser),
+			instance.ImageReaderFunc(utils.ReadFile),
 		),
 	)
 
