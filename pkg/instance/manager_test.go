@@ -1,6 +1,7 @@
 package instance_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -20,15 +21,16 @@ func TestNewManager(t *testing.T) {
 	mockInstance := NewMockInstance(gomock.NewController(t))
 	factory.EXPECT().Create(ctxID).Return(mockInstance)
 
-	mockInstance.EXPECT().StartAsync()
+	ctx := context.Background()
+	mockInstance.EXPECT().StartAsync(ctx)
 	mockInstance.EXPECT().Stop()
-	mockInstance.EXPECT().KeyPressed()
+	mockInstance.EXPECT().KeyPressed(ctx)
 
 	_, err := mgr.InitInstance(ctxID)
 	assert.Nil(t, err)
 
-	assert.NoError(t, mgr.StartAsync(ctxID))
-	assert.NoError(t, mgr.KeyPressed(ctxID))
+	assert.NoError(t, mgr.StartAsync(ctx, ctxID))
+	assert.NoError(t, mgr.KeyPressed(ctx, ctxID))
 
 	js := &fastjson.Value{}
 	mockInstance.EXPECT().SetConfig(js).Return(nil)
@@ -42,9 +44,10 @@ func TestNotExist(t *testing.T) {
 	mgr := instance.NewManager(factory)
 
 	ctxID := "1231231"
+	ctx := context.Background()
 
-	assert.ErrorContains(t, mgr.StartAsync(ctxID), "instance not found")
-	assert.ErrorContains(t, mgr.KeyPressed(ctxID), "instance not found")
+	assert.ErrorContains(t, mgr.StartAsync(ctx, ctxID), "instance not found")
+	assert.ErrorContains(t, mgr.KeyPressed(ctx, ctxID), "instance not found")
 	assert.ErrorContains(t, mgr.SetInstanceConfig(ctxID, nil), "instance not found")
 	assert.NoError(t, mgr.Stop(ctxID))
 }
@@ -76,7 +79,8 @@ func TestFailKeyPressed(t *testing.T) {
 	_, err := mgr.InitInstance(ctxID)
 	assert.NoError(t, err)
 
-	mockInstance.EXPECT().KeyPressed().Return(errors.New("key error"))
+	ctx := context.Background()
+	mockInstance.EXPECT().KeyPressed(ctx).Return(errors.New("key error"))
 
-	assert.ErrorContains(t, mgr.KeyPressed(ctxID), "key error")
+	assert.ErrorContains(t, mgr.KeyPressed(ctx, ctxID), "key error")
 }

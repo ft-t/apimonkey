@@ -1,145 +1,60 @@
 ![build workflow](https://github.com/ft-t/apimonkey/actions/workflows/release.yaml/badge.svg?branch=master)
 [![codecov](https://codecov.io/github/ft-t/apimonkey/graph/badge.svg?token=1DUN0Y78V4)](https://codecov.io/github/ft-t/apimonkey)
 [![go-report](https://goreportcard.com/badge/github.com/ft-t/apimonkey?nocache=true)](https://goreportcard.com/report/github.com/ft-t/apimonkey)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/ft-t/apimonkey)](https://pkg.go.dev/github.com/ft-t/apimonkey?tab=doc)
 
-# ApiMonkey
+# API Monkey
 
-**ApiMonkey** is a powerful StreamDeck plugin designed for developers, IT professionals, and enthusiasts who require a seamless way to send HTTP/HTTPS requests directly from their StreamDeck. With its advanced features and customization options, ApiMonkey stands out by providing enhanced functionality for automated workflows and interactions with web services.
+API Monkey is a Stream Deck plugin for sending HTTP requests and displaying the processed response on a key. It supports scheduled polling, on-demand actions, Go templates, JSON selection, Lua processing, and response-to-text or response-to-image mappings.
 
 ## Features
 
-ApiMonkey goes beyond simple HTTP/HTTPS request functionalities, offering a range of advanced features that set it apart from analogs:
+- Send `GET`, `POST`, `PUT`, `DELETE`, and `PATCH` requests.
+- Configure headers, request bodies, and TLS certificate verification.
+- Insert reusable parameters into URLs, bodies, headers, browser URLs, and title prefixes with Go templates.
+- Extract values from JSON responses with GJSON selectors.
+- Process responses with Lua 5.1 scripts and the bundled JSON module.
+- Map processed values to key text or packaged PNG/SVG images.
+- Poll in the background or refresh only when the key is pressed.
+- Assign key presses to open a browser, refresh the request, or run a dedicated Lua action.
+- Send HTTP requests from action Lua scripts.
 
-### Request features
-- **Go Templating Support**: Utilize Go Templating for dynamic fields such as URL, Body, Browser URL, and Title, allowing for highly customizable request configurations.
-- **Custom Headers**: Define custom headers for your requests, providing additional flexibility and support for various APIs that require specific header configurations.
+## Supported platforms
 
-### Response features
-- **JSON Selector**: Extract specific fields from a JSON response using a json selector syntax, This feature enables precise control over the data you want to interact with from your responses.
-- **Lua Scripting**: Execute custom LUA scripts with parameters for extended functionality. This allows for virtually limitless possibilities in processing responses.
-- **Response Mapping to Images**: Map specific response strings to images on your StreamDeck.
+- Windows 10 or later, x64
+- macOS 10.15 or later, Apple silicon
+- Stream Deck 6.4 or later
 
 ## Installation
 
-1. Download the latest release from the [releases page](https://github.com/ft-t/apimonkey/releases)
-2. Extract zip archive to your StreamDeck plugins folder (example - `C:\Users\<your user>\AppData\Roaming\Elgato\StreamDeck\Plugins`)
-3. Restart StreamDeck application
-4. Open StreamDeck and add the ApiMonkey plugin to your profile
-5. Configure your requests and enjoy!
+Install [API Monkey from the Elgato Marketplace](https://marketplace.elgato.com/product/api-monkey-754d958d-1c8e-4734-bbc3-b01ab914e3bb), then add it to a Stream Deck profile.
 
-### Custom Headers
-You can define custom headers for your requests.
-![docs/headers.png](docs/headers.png)
+For manual installation:
 
-### JSON Selector
-If API response is JSON and you want to extract some specific values from this json response, you can use JSON Selector.
-JSON Selector functionality is based on GoLang implementation of https://github.com/tidwall/gjson library
+1. Download `com.ftt.apimonkey.sdPlugin.zip` from the [latest GitHub release](https://github.com/ft-t/apimonkey/releases/latest).
+2. Extract the `com.ftt.apimonkey.sdPlugin` directory into the Stream Deck plugins directory:
+   - Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\`
+   - macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/`
+3. Restart Stream Deck.
+4. Add **API Monkey** to a profile and open its Property Inspector.
 
-### Response Mapping
-You can map specific response strings to images or text on your StreamDeck.
-You can unlimited number of mappings.
+## Quick start
 
-![docs/mapping.png](docs/mapping.png)
+Create an on-demand key that shows this repository's star count:
 
-In this specific example we are mapping `status` field to our mapping table:
-- `status = merged` will show `merge.svg` on your StreamDeck
-- `status = running` will show `pending.svg` on your StreamDeck
-- `status = success` will show `success.svg` on your StreamDeck
-- `*` stands for all other cases, not defined in mapping table, it will show `failed.svg` on your StreamDeck
+1. Set **Button Action** to `Refresh Request`.
+2. Set **Request Type** to `GET`.
+3. Set **API URL** to `https://api.github.com/repos/ft-t/apimonkey`.
+4. Set **Polling** to `0`.
+5. Set **JSON Selector** to `stargazers_count`.
+6. Set **Title Prefix** to `Stars`.
+7. Select **Save All**, then press the key.
 
-### Go Templating
-#### Available fields in for templating:
-- `API URL` - The URL of the API
-- `Body` - The body of the request (POST\PUT)
-- `Browser URL` - The URL of the browser (will be opened on button click)
-- `Title Prefix` - The title prefix for StreamDeck button
-- `Headers` - The headers of the request
+## Documentation
 
-#### Go Templating example
-As per screenshot, we defined two template variables
-- `PrID` - in this context pull request id
-- `ProjectID` - id of the project
-  ![docs/template.png](docs/template.png)
+- [Features, configuration, and examples](docs/usage.md)
+- [Lua scripting reference](docs/lua.md)
+- [Agent and contributor instructions](CLAUDE.md)
 
-We can now use these variables in request fields, for example per our screenshot:
+## License
 
-`API URL = https://gitlab.com/api/v4/projects/{{.ProjectID}}/merge_requests/{{.PrID}}/pipelines`
-`Browser URL = https://gitlab.com/someorg/org1/sub1/project/-/merge_requests/{{.PrID}}`
-
-Note: use Golang templating syntax for templating. For more information, please refer to the [Golang templating documentation](https://pkg.go.dev/text/template).
-
-#### Example
-```
-{
-  "name": {"first": "Tom", "last": "Anderson"},
-  "age":37,
-  "children": ["Sara","Alex","Jack"],
-  "fav.movie": "Deer Hunter",
-  "friends": [
-    {"first": "Dale", "last": "Murphy", "age": 44, "nets": ["ig", "fb", "tw"]},
-    {"first": "Roger", "last": "Craig", "age": 68, "nets": ["fb", "tw"]},
-    {"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
-  ]
-}
-```
-Selectors:
-```
-"name.last"          >> "Anderson"
-"age"                >> 37
-"children"           >> ["Sara","Alex","Jack"]
-"children.#"         >> 3
-"children.1"         >> "Alex"
-"child*.2"           >> "Jack"
-"c?ildren.0"         >> "Sara"
-"fav\.movie"         >> "Deer Hunter"
-"friends.#.first"    >> ["Dale","Roger","Jane"]
-"friends.1.last"     >> "Craig"
-```
-
-**For selector syntax please refer to the [gjson documentation](https://github.com/tidwall/gjson?tab=readme-ov-file#path-syntax)**
-
-### Lua Scripting
-#### Available fields in lua:
-- `_G.ResponseBody` - (string) The response body
-- `_G.ResponseStatusCode` - (int) The response status code
-
-Lua script execution is based on [gopher-lua](https://github.com/yuin/gopher-lua) library.
-
-Active Lua plugins:
-- `https://github.com/layeh/gopher-json` - for JSON encoding/decoding
-
-**Note: please always return a value from the lua script, otherwise the button will not be updated.**
-
-#### Lua Script example
-This example handles response from prometheus alert manager and sets alert count as text in the button.
-```lua
-local json = require("json")
-
-local data, pos, err = json.decode(_G.ResponseBody, 1, nil)
-
-local totalCount = 0
-
-for _, alert in ipairs(data.data.alerts) do
-  if alert.state == "firing" then
-    local isWatchdog = false
-    if alert.labels ~= nil then
-      isWatchdog = alert.labels.alertname == "Watchdog"
-    end
-
-    if isWatchdog == false then
-      totalCount = totalCount + 1
-    end
-  end
-end
-
-return totalCount
-```
-
-![docs/img.png](docs/lua.png)
-
-## Dependencies
-- [streamdeck-sdk-go](https://github.com/tystuyfzand/streamdeck-sdk-go) - StreamDeck SDK for Go
-- [streamdeck-easypi](https://github.com/BarRaider/streamdeck-easypi) - EasyPI for StreamDeck
-- [gopher-lua](https://github.com/yuin/gopher-lua) - Lua VM in Go
-- [gjson](https://github.com/tidwall/gjson) - JSON parser for Go
+[MIT](LICENSE)

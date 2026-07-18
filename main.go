@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
 
+	"github.com/imroc/req/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -12,9 +15,12 @@ import (
 	"github.com/ft-t/apimonkey/pkg/instance"
 	"github.com/ft-t/apimonkey/pkg/scripts"
 	sdk2 "github.com/ft-t/apimonkey/pkg/sdk"
+	"github.com/ft-t/apimonkey/pkg/utils"
 )
 
 var lg zerolog.Logger
+
+type keyPressFunc func(ctx context.Context, ctxID string) error
 
 func recoverPanic() {
 	if rec := recover(); rec != nil {
@@ -25,6 +31,16 @@ func recoverPanic() {
 			lg.Error().Msgf("%v", v)
 		}
 	}
+}
+
+func startKeyPress(ctx context.Context, ctxID string, keyPress keyPressFunc) {
+	go func() {
+		defer recoverPanic()
+
+		if err := keyPress(ctx, ctxID); err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("error handling key press")
+		}
+	}()
 }
 
 func main() {
@@ -38,13 +54,19 @@ func main() {
 
 	lg = zerolog.New(zerolog.MultiLevelWriter(os.Stdout, logFile)).With().Timestamp().Logger()
 	log.Logger = lg
+	pluginCtx, cancel := context.WithCancel(lg.WithContext(context.Background()))
+	defer cancel()
 
 	manager := instance.NewManager(
 		instance.NewDefaultFactory(
 			sdk2.NewSDK(),
 			executor.NewExecutor(
-				scripts.NewLua(),
+				scripts.NewLua(http.DefaultClient),
+				req.C(),
+				req.C().EnableInsecureSkipVerify(),
 			),
+			instance.BrowserOpenerFunc(utils.OpenBrowser),
+			instance.ImageReaderFunc(utils.ReadFile),
 		),
 	)
 
@@ -68,12 +90,14 @@ func main() {
 			return
 		}
 
-		if err = manager.StartAsync(event.Context); err != nil {
+		if err = manager.StartAsync(pluginCtx, event.Context); err != nil {
 			lg.Err(err).Send()
 			return
 		}
 	})
 	sdk.AddHandler(func(event *sdk.WillDisappearEvent) {
+		defer recoverPanic()
+
 		if event.Payload == nil {
 			return
 		}
@@ -84,6 +108,8 @@ func main() {
 	})
 
 	sdk.AddHandler(func(event *sdk.ReceiveSettingsEvent) {
+		defer recoverPanic()
+
 		if err := manager.SetInstanceConfig(event.Context, event.Settings); err != nil {
 			lg.Err(err).Send()
 			return
@@ -91,10 +117,7 @@ func main() {
 	})
 
 	sdk.AddHandler(func(event *sdk.KeyDownEvent) {
-		if err := manager.KeyPressed(event.Context); err != nil {
-			lg.Err(err).Send()
-			return
-		}
+		startKeyPress(pluginCtx, event.Context, manager.KeyPressed)
 	})
 
 	lg.Info().Msgf("Starting StreamDeck plugin. args %v", os.Args)
